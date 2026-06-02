@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'tela_modulo.dart';
+import 'tela_materias.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,12 +14,19 @@ class HomeScreen extends StatelessWidget {
       {'title': 'Provas', 'icon': Icons.assignment_late, 'color': Colors.red},
       {'title': 'Resumos', 'icon': Icons.description, 'color': Colors.purple},
       {'title': 'Metas de Estudo', 'icon': Icons.flag, 'color': Colors.teal},
-      {'title': 'Cronograma', 'icon': Icons.calendar_month, 'color': Colors.indigo},
+      {
+        'title': 'Cronograma',
+        'icon': Icons.calendar_month,
+        'color': Colors.indigo,
+      },
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meu Painel', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Meu Painel',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         elevation: 0,
@@ -27,10 +35,10 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, 
+            crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.1, 
+            childAspectRatio: 1.1,
           ),
           itemCount: modules.length,
           itemBuilder: (context, index) {
@@ -42,22 +50,22 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDashboardCard(BuildContext context, Map<String, dynamic> module) {
+  Widget _buildDashboardCard(
+    BuildContext context,
+    Map<String, dynamic> module,
+  ) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ModuleScreen(
-                title: module['title'],
-                themeColor: module['color'],
-              ),
-            ),
-          );
+          if (module['title'] == 'Matérias') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TelaMaterias()),
+            );
+          }
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -68,19 +76,12 @@ class HomeScreen extends StatelessWidget {
                 color: module['color'].withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                module['icon'],
-                size: 36,
-                color: module['color'],
-              ),
+              child: Icon(module['icon'], size: 36, color: module['color']),
             ),
             const SizedBox(height: 12),
             Text(
               module['title'],
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
           ],

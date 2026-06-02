@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'telas/tela_login.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -23,7 +23,6 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: const LoginScreen(),
     );
   }
 }
