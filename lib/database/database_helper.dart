@@ -2,49 +2,31 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
-
-  static final DatabaseHelper instance =
-      DatabaseHelper._init();
+  static final DatabaseHelper instance = DatabaseHelper._init();
 
   static Database? _database;
 
   DatabaseHelper._init();
 
   Future<Database> get database async {
-
     if (_database != null) {
       return _database!;
     }
 
-    _database =
-        await _initDB(
-      'studyflow.db',
-    );
+    _database = await _initDB('studyflow.db');
 
     return _database!;
   }
 
-  Future<Database> _initDB(
-      String filePath) async {
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
 
-    final dbPath =
-        await getDatabasesPath();
+    final path = join(dbPath, filePath);
 
-    final path =
-        join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
-  Future<void> _createDB(
-    Database db,
-    int version,
-  ) async {
-
+  Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE materia(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,5 +38,16 @@ class DatabaseHelper {
         status TEXT
       )
     ''');
+    await db.execute('''
+    CREATE TABLE tarefa(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo TEXT NOT NULL,
+      descricao TEXT,
+      concluida INTEGER NOT NULL,
+      id_materia INTEGER NOT NULL,
+      FOREIGN KEY(id_materia)
+        REFERENCES materia(id)
+    )
+  ''');
   }
 }

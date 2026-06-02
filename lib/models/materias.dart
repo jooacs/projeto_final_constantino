@@ -37,11 +37,11 @@ class Materia {
     return Materia(
       id: map['id'],
       nome: map['nome'],
-      professor: map['professor'],
+      professor: map['professor'] ?? '',
       cor: Color(map['cor']),
-      horario: map['horario'],
-      metaHoras: map['meta_horas'],
-      status: map['status'],
+      horario: map['horario'] ?? '',
+      metaHoras: (map['meta_horas'] ?? 0).toDouble(),
+      status: map['status'] ?? 'ativa',
     );
   }
 }
