@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'telas/tela_login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Organizador de Estudos',
       debugShowCheckedModeBanner: false,
-
+      home: const LoginScreen(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -22,7 +22,6 @@ class MyApp extends StatelessWidget {
           surface: Colors.white,
         ),
       ),
-
     );
   }
 }

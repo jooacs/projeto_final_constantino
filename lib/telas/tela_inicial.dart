@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'tela_modulo.dart';
 import 'tela_materias.dart';
 
 class HomeScreen extends StatelessWidget {
