@@ -7,16 +7,47 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> modules = [
-      {'title': 'Matérias', 'icon': Icons.menu_book, 'color': Colors.blue},
-      {'title': 'Notas', 'icon': Icons.star, 'color': Colors.orange},
-      {'title': 'Tarefas', 'icon': Icons.task_alt, 'color': Colors.green},
-      {'title': 'Provas', 'icon': Icons.assignment_late, 'color': Colors.red},
-      {'title': 'Resumos', 'icon': Icons.description, 'color': Colors.purple},
-      {'title': 'Metas de Estudo', 'icon': Icons.flag, 'color': Colors.teal},
+      {
+        'title': 'Matérias',
+        'icon': Icons.menu_book,
+        'color': Colors.blue,
+        'screen': const TelaMaterias(),
+      },
+      {
+        'title': 'Notas',
+        'icon': Icons.star,
+        'color': Colors.orange,
+        'screen': null,
+      },
+      {
+        'title': 'Tarefas',
+        'icon': Icons.task_alt,
+        'color': Colors.green,
+        'screen': null,
+      },
+      {
+        'title': 'Provas',
+        'icon': Icons.assignment_late,
+        'color': Colors.red,
+        'screen': null,
+      },
+      {
+        'title': 'Resumos',
+        'icon': Icons.description,
+        'color': Colors.purple,
+        'screen': null,
+      },
+      {
+        'title': 'Metas de Estudo',
+        'icon': Icons.flag,
+        'color': Colors.teal,
+        'screen': null,
+      },
       {
         'title': 'Cronograma',
         'icon': Icons.calendar_month,
         'color': Colors.indigo,
+        'screen': null,
       },
     ];
 
@@ -27,7 +58,6 @@ class HomeScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         elevation: 0,
       ),
       body: Padding(
@@ -53,36 +83,75 @@ class HomeScreen extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> module,
   ) {
+    final bool isImplemented = module['screen'] != null;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          if (module['title'] == 'Matérias') {
+          if (isImplemented) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const TelaMaterias()),
+              MaterialPageRoute(builder: (context) => module['screen']),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${module['title']} em desenvolvimento'),
+                duration: const Duration(seconds: 2),
+              ),
             );
           }
         },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: module['color'].withOpacity(0.1),
-                shape: BoxShape.circle,
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: module['color'].withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(module['icon'], size: 36, color: module['color']),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  module['title'],
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            if (!isImplemented)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Em breve',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(module['icon'], size: 36, color: module['color']),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              module['title'],
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
           ],
         ),
       ),

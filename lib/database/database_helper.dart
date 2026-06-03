@@ -1,53 +1,302 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+/// Classe responsável pelo gerenciamento do banco de dados
+///
+/// Implementa o padrão Singleton para garantir uma única instância
+/// do banco de dados em toda a aplicação
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
 
   static Database? _database;
 
+  // Constantes para configuração do banco
+  static const String _dbName = 'studyflow.db';
+  static const int _dbVersion = 2;
+
+  // Tabelas
+  static const String tableMateria = 'materia';
+  static const String tableTarefa = 'tarefa';
+  static const String tableDocumento = 'documento';
+
+  // Colunas de materia
+  static const String colMateriaId = 'id';
+  static const String colMateriaNome = 'nome';
+  static const String colMateriaProfessor = 'professor';
+  static const String colMateriaCor = 'cor';
+  static const String colMateriaHorario = 'horario';
+  static const String colMateriaMetaHoras = 'meta_horas';
+  static const String colMateriaStatus = 'status';
+
+  // Colunas de tarefa
+  static const String colTarefaId = 'id';
+  static const String colTarefaTitulo = 'titulo';
+  static const String colTarefaDescricao = 'descricao';
+  static const String colTarefaConcluida = 'concluida';
+  static const String colTarefaIdMateria = 'id_materia';
+
+  // Colunas de documento
+  static const String colDocumentoId = 'id';
+  static const String colDocumentoTitulo = 'titulo';
+  static const String colDocumentoTipo = 'tipo';
+  static const String colDocumentoCaminho = 'caminho';
+  static const String colDocumentoNomeArquivo = 'nome_arquivo';
+  static const String colDocumentoDescricao = 'descricao';
+  static const String colDocumentoResumo = 'resumo';
+  static const String colDocumentoTopicos = 'topicos';
+  static const String colDocumentoSugeridos = 'sugeridos';
+  static const String colDocumentoQuestoes = 'questoes';
+  static const String colDocumentoRespostas = 'respostas';
+  static const String colDocumentoStatus = 'status';
+  static const String colDocumentoErro = 'erro';
+  static const String colDocumentoDataCriacao = 'data_criacao';
+
   DatabaseHelper._init();
 
+  /// Retorna a instância do banco de dados
+  ///
+  /// Inicializa o banco se ainda não foi feito
+  /// Garante uma única conexão durante toda a vida da aplicação
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
     }
 
-    _database = await _initDB('studyflow.db');
+    _database = await _initDB();
 
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
+  /// Inicializa o banco de dados
+  ///
+  /// Cria o arquivo do banco e estabelece a conexão
+  /// Lança exceção se houver erro na inicialização
+  Future<Database> _initDB() async {
+    try {
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, _dbName);
 
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+      return await openDatabase(
+        path,
+        version: _dbVersion,
+        onConfigure: _onConfigure,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+      );
+    } catch (e) {
+      throw Exception('Erro ao inicializar banco de dados: $e');
+    }
   }
 
+  /// Configura o banco de dados antes da criação/upgrade
+  ///
+  /// Ativa suporte a foreign keys para garantir integridade referencial
+  Future<void> _onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
+  }
+
+  /// Cria as tabelas do banco de dados na primeira execução
+  ///
+  /// Define o schema inicial de todas as tabelas
+  /// Lança exceção se houver erro na criação
   Future<void> _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE materia(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        professor TEXT,
-        cor INTEGER,
-        horario TEXT,
-        meta_horas REAL,
-        status TEXT
-      )
-    ''');
-    await db.execute('''
-    CREATE TABLE tarefa(
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      titulo TEXT NOT NULL,
-      descricao TEXT,
-      concluida INTEGER NOT NULL,
-      id_materia INTEGER NOT NULL,
-      FOREIGN KEY(id_materia)
-        REFERENCES materia(id)
-    )
-  ''');
+    try {
+      // Criar tabela materia
+      await db.execute('''
+        CREATE TABLE $tableMateria(
+          $colMateriaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colMateriaNome TEXT NOT NULL UNIQUE,
+          $colMateriaProfessor TEXT,
+          $colMateriaCor INTEGER,
+          $colMateriaHorario TEXT,
+          $colMateriaMetaHoras REAL DEFAULT 0,
+          $colMateriaStatus TEXT DEFAULT 'ativa'
+        )
+      ''');
+
+      // Criar tabela tarefa
+      await db.execute('''
+        CREATE TABLE $tableTarefa(
+          $colTarefaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colTarefaTitulo TEXT NOT NULL,
+          $colTarefaDescricao TEXT,
+          $colTarefaConcluida INTEGER DEFAULT 0,
+          $colTarefaIdMateria INTEGER NOT NULL,
+          FOREIGN KEY($colTarefaIdMateria)
+            REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+        )
+      ''');
+
+      // Criar tabela documento
+      await db.execute('''
+        CREATE TABLE $tableDocumento(
+          $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colDocumentoTitulo TEXT NOT NULL,
+          $colDocumentoTipo TEXT,
+          $colDocumentoCaminho TEXT NOT NULL,
+          $colDocumentoNomeArquivo TEXT NOT NULL,
+          $colDocumentoDescricao TEXT,
+          $colDocumentoResumo TEXT,
+          $colDocumentoTopicos TEXT,
+          $colDocumentoSugeridos TEXT,
+          $colDocumentoQuestoes TEXT,
+          $colDocumentoRespostas TEXT,
+          $colDocumentoStatus TEXT DEFAULT 'pendente',
+          $colDocumentoErro TEXT,
+          $colDocumentoDataCriacao TEXT NOT NULL
+        )
+      ''');
+
+      // Criar índices para melhorar performance
+      await db.execute(
+        'CREATE INDEX idx_tarefa_materia ON $tableTarefa($colTarefaIdMateria)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_materia_status ON $tableMateria($colMateriaStatus)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_tarefa_concluida ON $tableTarefa($colTarefaConcluida)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_documento_status ON $tableDocumento($colDocumentoStatus)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_documento_data_criacao ON $tableDocumento($colDocumentoDataCriacao)',
+      );
+    } catch (e) {
+      throw Exception('Erro ao criar tabelas: $e');
+    }
+  }
+
+  /// Atualiza o schema do banco de dados para versões posteriores
+  ///
+  /// Implementa migrations quando a versão do banco mudar
+  /// Lança exceção se houver erro na atualização
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    try {
+      if (oldVersion < newVersion) {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE $tableDocumento(
+              $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
+              $colDocumentoTitulo TEXT NOT NULL,
+              $colDocumentoTipo TEXT,
+              $colDocumentoCaminho TEXT NOT NULL,
+              $colDocumentoNomeArquivo TEXT NOT NULL,
+              $colDocumentoDescricao TEXT,
+              $colDocumentoResumo TEXT,
+              $colDocumentoTopicos TEXT,
+              $colDocumentoSugeridos TEXT,
+              $colDocumentoQuestoes TEXT,
+              $colDocumentoRespostas TEXT,
+              $colDocumentoStatus TEXT DEFAULT 'pendente',
+              $colDocumentoErro TEXT,
+              $colDocumentoDataCriacao TEXT NOT NULL
+            )
+          ''');
+
+          await db.execute(
+            'CREATE INDEX idx_documento_status ON $tableDocumento($colDocumentoStatus)',
+          );
+          await db.execute(
+            'CREATE INDEX idx_documento_data_criacao ON $tableDocumento($colDocumentoDataCriacao)',
+          );
+        }
+      }
+    } catch (e) {
+      throw Exception('Erro ao fazer upgrade do banco de dados: $e');
+    }
+  }
+
+  /// Verifica se o banco de dados está pronto para uso
+  ///
+  /// Retorna true se a conexão está ativa
+  bool get isOpen {
+    return _database != null && _database!.isOpen;
+  }
+
+  /// Retorna o caminho do arquivo do banco de dados
+  ///
+  /// Útil para debug e backup
+  Future<String> getDbPath() async {
+    try {
+      final dbPath = await getDatabasesPath();
+      return join(dbPath, _dbName);
+    } catch (e) {
+      throw Exception('Erro ao obter caminho do banco: $e');
+    }
+  }
+
+  /// Fecha a conexão com o banco de dados
+  ///
+  /// Deve ser chamado quando a aplicação está siendo encerrada
+  /// Libera recursos do banco
+  Future<void> close() async {
+    try {
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+    } catch (e) {
+      throw Exception('Erro ao fechar banco de dados: $e');
+    }
+  }
+
+  /// Executa uma transação com múltiplas operações
+  ///
+  /// Garante atomicidade: todas as operações são executadas ou nenhuma é
+  /// Útil para operações que dependem uma da outra
+  Future<T> transaction<T>(Future<T> Function(Transaction txn) action) async {
+    try {
+      final db = await database;
+      return await db.transaction(action);
+    } catch (e) {
+      throw Exception('Erro ao executar transação: $e');
+    }
+  }
+
+  /// Retorna o número total de tarefas no banco
+  ///
+  /// Útil para estatísticas
+  Future<int> getTotalTarefas() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) as total FROM $tableTarefa',
+      );
+      return (result.first['total'] as int?) ?? 0;
+    } catch (e) {
+      throw Exception('Erro ao contar tarefas: $e');
+    }
+  }
+
+  /// Retorna o número total de matérias no banco
+  ///
+  /// Útil para estatísticas
+  Future<int> getTotalMaterias() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) as total FROM $tableMateria',
+      );
+      return (result.first['total'] as int?) ?? 0;
+    } catch (e) {
+      throw Exception('Erro ao contar matérias: $e');
+    }
+  }
+
+  /// Reseta o banco de dados (usa com cuidado!)
+  ///
+  /// Remove todas as tabelas e as recria
+  /// Útil apenas para testes ou reset completo da aplicação
+  Future<void> resetDatabase() async {
+    try {
+      await close();
+      final dbPath = await getDbPath();
+      await deleteDatabase(dbPath);
+      _database = null;
+    } catch (e) {
+      throw Exception('Erro ao resetar banco de dados: $e');
+    }
   }
 }

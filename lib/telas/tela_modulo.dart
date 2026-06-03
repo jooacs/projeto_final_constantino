@@ -21,12 +21,14 @@ class ModuleScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         backgroundColor: themeColor,
         foregroundColor: Colors.white,
-        onPressed: () {},
+        onPressed: () {
+          // TODO: Implementar adição de novo item
+        },
         child: const Icon(Icons.add),
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: 5, 
+        itemCount: 5,
         itemBuilder: (context, index) {
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -34,7 +36,10 @@ class ModuleScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
               leading: CircleAvatar(
                 backgroundColor: themeColor.withOpacity(0.2),
                 child: Icon(Icons.book, color: themeColor),
@@ -46,6 +51,7 @@ class ModuleScreen extends StatelessWidget {
               subtitle: const Text('Toque para ver detalhes ou editar.'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
+                // TODO: Implementar navegação para detalhes
               },
             ),
           );

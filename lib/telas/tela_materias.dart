@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/materias.dart';
+import '../models/materia.dart';
 import '../services/materia_service.dart';
 import 'tela_detalhes_materia.dart';
 
@@ -17,6 +17,8 @@ class _TelaMateriasState extends State<TelaMaterias> {
 
   // Lista de matérias
   List<Materia> materias = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
   final MateriaService materiaService = MateriaService();
 
@@ -26,40 +28,72 @@ class _TelaMateriasState extends State<TelaMaterias> {
     carregarMaterias();
   }
 
-  Future<void> carregarMaterias() async {
-    final lista = await materiaService.buscarMaterias();
+  @override
+  void dispose() {
+    nomeController.dispose();
+    professorController.dispose();
+    super.dispose();
+  }
 
+  Future<void> carregarMaterias() async {
     setState(() {
-      materias = lista;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final lista = await materiaService.buscarMaterias();
+
+      if (!mounted) return;
+
+      setState(() {
+        materias = lista;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Erro ao carregar matérias: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   // CREATE
-  void adicionarMateria() async {
-    if (nomeController.text.isEmpty || professorController.text.isEmpty) {
+  Future<void> adicionarMateria() async {
+    if (nomeController.text.trim().isEmpty ||
+        professorController.text.trim().isEmpty) {
+      _mostrarErro('Preencha todos os campos');
       return;
     }
 
-    final materia = Materia(
-      nome: nomeController.text,
-      professor: professorController.text,
-      cor: Colors.blue,
-    );
+    try {
+      final materia = Materia(
+        nome: nomeController.text.trim(),
+        professor: professorController.text.trim(),
+        cor: Colors.blue,
+      );
 
-    await materiaService.inserirMateria(materia);
+      await materiaService.inserirMateria(materia);
 
-    await carregarMaterias();
+      if (!mounted) return;
 
-    nomeController.clear();
-    professorController.clear();
+      await carregarMaterias();
+      nomeController.clear();
+      professorController.clear();
 
-    Navigator.pop(context);
+      Navigator.pop(context);
+      _mostrarSucesso('Matéria adicionada com sucesso!');
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro('Erro ao adicionar matéria: ${e.toString()}');
+    }
   }
 
   // UPDATE
-  void editarMateria(int index) {
+  Future<void> editarMateria(int index) async {
     nomeController.text = materias[index].nome;
-
     professorController.text = materias[index].professor;
 
     showDialog(
@@ -67,7 +101,6 @@ class _TelaMateriasState extends State<TelaMaterias> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Editar Matéria'),
-
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -75,16 +108,13 @@ class _TelaMateriasState extends State<TelaMaterias> {
                 controller: nomeController,
                 decoration: const InputDecoration(labelText: 'Nome da matéria'),
               ),
-
               const SizedBox(height: 10),
-
               TextField(
                 controller: professorController,
                 decoration: const InputDecoration(labelText: 'Professor'),
               ),
             ],
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -92,22 +122,32 @@ class _TelaMateriasState extends State<TelaMaterias> {
               },
               child: const Text('Cancelar'),
             ),
-
             ElevatedButton(
               onPressed: () async {
-                materias[index].nome = nomeController.text;
+                if (nomeController.text.trim().isEmpty ||
+                    professorController.text.trim().isEmpty) {
+                  _mostrarErro('Preencha todos os campos');
+                  return;
+                }
 
-                materias[index].professor = professorController.text;
+                try {
+                  materias[index].nome = nomeController.text.trim();
+                  materias[index].professor = professorController.text.trim();
 
-                await materiaService.atualizarMateria(materias[index]);
+                  await materiaService.atualizarMateria(materias[index]);
 
-                await carregarMaterias();
+                  if (!mounted) return;
 
-                nomeController.clear();
+                  await carregarMaterias();
+                  nomeController.clear();
+                  professorController.clear();
 
-                professorController.clear();
-
-                Navigator.pop(context);
+                  Navigator.pop(context);
+                  _mostrarSucesso('Matéria atualizada com sucesso!');
+                } catch (e) {
+                  if (!mounted) return;
+                  _mostrarErro('Erro ao atualizar: ${e.toString()}');
+                }
               },
               child: const Text('Salvar'),
             ),
@@ -118,10 +158,44 @@ class _TelaMateriasState extends State<TelaMaterias> {
   }
 
   // DELETE
-  void removerMateria(int index) async {
-    await materiaService.removerMateria(materias[index].id!);
+  Future<void> removerMateria(int index) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirmar exclusão'),
+          content: Text(
+            'Tem certeza que deseja deletar "${materias[index].nome}"? '
+            'Todas as tarefas associadas também serão removidas.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Deletar'),
+            ),
+          ],
+        );
+      },
+    );
 
-    await carregarMaterias();
+    if (confirmado == true) {
+      try {
+        await materiaService.removerMateria(materias[index].id!);
+
+        if (!mounted) return;
+
+        await carregarMaterias();
+        _mostrarSucesso('Matéria removida com sucesso!');
+      } catch (e) {
+        if (!mounted) return;
+        _mostrarErro('Erro ao remover: ${e.toString()}');
+      }
+    }
   }
 
   // Dialog CREATE
@@ -134,7 +208,6 @@ class _TelaMateriasState extends State<TelaMaterias> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Nova Matéria'),
-
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -142,16 +215,13 @@ class _TelaMateriasState extends State<TelaMaterias> {
                 controller: nomeController,
                 decoration: const InputDecoration(labelText: 'Nome da matéria'),
               ),
-
               const SizedBox(height: 10),
-
               TextField(
                 controller: professorController,
                 decoration: const InputDecoration(labelText: 'Professor'),
               ),
             ],
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -159,7 +229,6 @@ class _TelaMateriasState extends State<TelaMaterias> {
               },
               child: const Text('Cancelar'),
             ),
-
             ElevatedButton(
               onPressed: adicionarMateria,
               child: const Text('Adicionar'),
@@ -170,61 +239,124 @@ class _TelaMateriasState extends State<TelaMaterias> {
     );
   }
 
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _mostrarSucesso(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Matérias')),
-
-      body: ListView.builder(
-        itemCount: materias.length,
-
-        itemBuilder: (context, index) {
-          return Card(
-            margin: const EdgeInsets.all(10),
-
-            child: ListTile(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        TelaDetalhesMateria(materia: materias[index]),
-                  ),
-                );
-              },
-
-              leading: CircleAvatar(
-                backgroundColor: materias[index].cor,
-                child: const Icon(Icons.menu_book, color: Colors.white),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: carregarMaterias,
+                      child: const Text('Tentar Novamente'),
+                    ),
+                  ],
+                ),
               ),
-
-              title: Text(materias[index].nome),
-
-              subtitle: Text(materias[index].professor),
-
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+            )
+          : materias.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      editarMateria(index);
-                    },
+                  const Icon(
+                    Icons.menu_book_outlined,
+                    size: 64,
+                    color: Colors.grey,
                   ),
-
-                  IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () {
-                      removerMateria(index);
-                    },
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhuma matéria cadastrada',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Clique no + para adicionar uma nova',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
+            )
+          : ListView.builder(
+              itemCount: materias.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  margin: const EdgeInsets.all(10),
+                  child: ListTile(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TelaDetalhesMateria(materia: materias[index]),
+                        ),
+                      );
+                    },
+                    leading: CircleAvatar(
+                      backgroundColor: materias[index].cor,
+                      child: const Icon(Icons.menu_book, color: Colors.white),
+                    ),
+                    title: Text(materias[index].nome),
+                    subtitle: Text(materias[index].professor),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () {
+                            editarMateria(index);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            removerMateria(index);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
-
       floatingActionButton: FloatingActionButton(
         onPressed: abrirDialogAdicionar,
         child: const Icon(Icons.add),
