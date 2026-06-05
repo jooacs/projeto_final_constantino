@@ -5,6 +5,9 @@ class Tarefa {
   String descricao;
   bool concluida;
   final int idMateria;
+  DateTime? dataCriacao;
+  DateTime? dataEntrega;
+  DateTime? dataConclusao;
 
   Tarefa({
     this.id,
@@ -12,6 +15,9 @@ class Tarefa {
     required this.descricao,
     required this.concluida,
     required this.idMateria,
+    this.dataCriacao,
+    this.dataEntrega,
+    this.dataConclusao,
   }) : assert(titulo.isNotEmpty, 'O título da tarefa não pode estar vazio');
 
   /// Converte o objeto Tarefa para um Map para salvar no banco de dados
@@ -22,6 +28,9 @@ class Tarefa {
       'descricao': descricao.trim(),
       'concluida': concluida ? 1 : 0,
       'id_materia': idMateria,
+      'data_criacao': dataCriacao?.toIso8601String(),
+      'data_entrega': dataEntrega?.toIso8601String(),
+      'data_conclusao': dataConclusao?.toIso8601String(),
     };
   }
 
@@ -33,12 +42,15 @@ class Tarefa {
       descricao: (map['descricao'] ?? '').toString().trim(),
       concluida: (map['concluida'] as int? ?? 0) == 1,
       idMateria: map['id_materia'] as int,
+      dataCriacao: map['data_criacao'] != null ? DateTime.parse(map['data_criacao'] as String) : null,
+      dataEntrega: map['data_entrega'] != null ? DateTime.parse(map['data_entrega'] as String) : null,
+      dataConclusao: map['data_conclusao'] != null ? DateTime.parse(map['data_conclusao'] as String) : null,
     );
   }
 
   @override
   String toString() =>
-      'Tarefa(id: $id, titulo: $titulo, concluida: $concluida)';
+      'Tarefa(id: $id, titulo: $titulo, concluida: $concluida, dataEntrega: $dataEntrega)';
 
   @override
   bool operator ==(Object other) =>

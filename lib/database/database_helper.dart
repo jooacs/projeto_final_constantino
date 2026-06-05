@@ -12,11 +12,12 @@ class DatabaseHelper {
 
   // Constantes para configuração do banco
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 4;
 
   // Tabelas
   static const String tableMateria = 'materia';
   static const String tableTarefa = 'tarefa';
+  static const String tableProva = 'prova';
   static const String tableDocumento = 'documento';
 
   // Colunas de materia
@@ -34,6 +35,19 @@ class DatabaseHelper {
   static const String colTarefaDescricao = 'descricao';
   static const String colTarefaConcluida = 'concluida';
   static const String colTarefaIdMateria = 'id_materia';
+  static const String colTarefaDataCriacao = 'data_criacao';
+  static const String colTarefaDataEntrega = 'data_entrega';
+  static const String colTarefaDataConclusao = 'data_conclusao';
+
+  // Colunas de prova
+  static const String colProvaId = 'id';
+  static const String colProvaTitulo = 'titulo';
+  static const String colProvaDescricao = 'descricao';
+  static const String colProvaDataCriacao = 'data_criacao';
+  static const String colProvaDataProva = 'data_prova';
+  static const String colProvaNota = 'nota';
+  static const String colProvaRealizada = 'realizada';
+  static const String colProvaIdMateria = 'id_materia';
 
   // Colunas de documento
   static const String colDocumentoId = 'id';
@@ -147,6 +161,22 @@ class DatabaseHelper {
         )
       ''');
 
+      // Criar tabela prova
+      await db.execute('''
+        CREATE TABLE $tableProva(
+          $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colProvaTitulo TEXT NOT NULL,
+          $colProvaDescricao TEXT,
+          $colProvaDataCriacao TEXT,
+          $colProvaDataProva TEXT,
+          $colProvaNota REAL,
+          $colProvaRealizada INTEGER DEFAULT 0,
+          $colProvaIdMateria INTEGER NOT NULL,
+          FOREIGN KEY($colProvaIdMateria)
+            REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+        )
+      ''');
+
       // Criar índices para melhorar performance
       await db.execute(
         'CREATE INDEX idx_tarefa_materia ON $tableTarefa($colTarefaIdMateria)',
@@ -156,6 +186,9 @@ class DatabaseHelper {
       );
       await db.execute(
         'CREATE INDEX idx_tarefa_concluida ON $tableTarefa($colTarefaConcluida)',
+      );
+      await db.execute(
+        'CREATE INDEX idx_prova_materia ON $tableProva($colProvaIdMateria)',
       );
       await db.execute(
         'CREATE INDEX idx_documento_status ON $tableDocumento($colDocumentoStatus)',
@@ -200,6 +233,30 @@ class DatabaseHelper {
           );
           await db.execute(
             'CREATE INDEX idx_documento_data_criacao ON $tableDocumento($colDocumentoDataCriacao)',
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataCriacao TEXT');
+          await db.execute('ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataEntrega TEXT');
+          await db.execute('ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataConclusao TEXT');
+        }
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE $tableProva(
+              $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
+              $colProvaTitulo TEXT NOT NULL,
+              $colProvaDescricao TEXT,
+              $colProvaDataCriacao TEXT,
+              $colProvaDataProva TEXT,
+              $colProvaNota REAL,
+              $colProvaRealizada INTEGER DEFAULT 0,
+              $colProvaIdMateria INTEGER NOT NULL,
+              FOREIGN KEY($colProvaIdMateria)
+                REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+            )
+          ''');
+          await db.execute(
+            'CREATE INDEX idx_prova_materia ON $tableProva($colProvaIdMateria)',
           );
         }
       }

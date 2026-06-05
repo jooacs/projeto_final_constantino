@@ -97,6 +97,23 @@ class TarefaService {
     }
   }
 
+  /// Busca todas as tarefas cadastradas de todas as matérias
+  ///
+  /// Retorna uma lista de Tarefa ou lista vazia se nenhuma for encontrada
+  /// Lança exceção se houver erro na consulta
+  Future<List<Tarefa>> buscarTodas() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+        'tarefa',
+        orderBy: 'concluida ASC, data_entrega ASC, titulo ASC',
+      );
+      return result.map((e) => Tarefa.fromMap(e)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar todas as tarefas: $e');
+    }
+  }
+
   /// Atualiza uma tarefa existente
   ///
   /// Retorna o número de linhas atualizadas
