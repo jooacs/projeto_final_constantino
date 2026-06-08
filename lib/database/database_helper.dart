@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   // Constantes para configuração do banco
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 5;
 
   // Tabelas
   static const String tableMateria = 'materia';
@@ -38,6 +38,7 @@ class DatabaseHelper {
   static const String colTarefaDataCriacao = 'data_criacao';
   static const String colTarefaDataEntrega = 'data_entrega';
   static const String colTarefaDataConclusao = 'data_conclusao';
+  static const String colTarefaIdDocumento = 'id_documento';
 
   // Colunas de prova
   static const String colProvaId = 'id';
@@ -48,6 +49,7 @@ class DatabaseHelper {
   static const String colProvaNota = 'nota';
   static const String colProvaRealizada = 'realizada';
   static const String colProvaIdMateria = 'id_materia';
+  static const String colProvaIdDocumento = 'id_documento';
 
   // Colunas de documento
   static const String colDocumentoId = 'id';
@@ -258,6 +260,10 @@ class DatabaseHelper {
           await db.execute(
             'CREATE INDEX idx_prova_materia ON $tableProva($colProvaIdMateria)',
           );
+        }
+        if (oldVersion < 5) {
+          await db.execute('ALTER TABLE $tableTarefa ADD COLUMN $colTarefaIdDocumento INTEGER');
+          await db.execute('ALTER TABLE $tableProva ADD COLUMN $colProvaIdDocumento INTEGER');
         }
       }
     } catch (e) {

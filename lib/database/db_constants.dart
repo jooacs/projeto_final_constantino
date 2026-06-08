@@ -25,6 +25,7 @@ const String colTarefaIdMateria = 'id_materia';
 const String colTarefaDataCriacao = 'data_criacao';
 const String colTarefaDataEntrega = 'data_entrega';
 const String colTarefaDataConclusao = 'data_conclusao';
+const String colTarefaIdDocumento = 'id_documento';
 
 // ============= TABELA PROVA =============
 const String tableProva = 'prova';
@@ -36,9 +37,11 @@ const String colProvaDataProva = 'data_prova';
 const String colProvaNota = 'nota';
 const String colProvaRealizada = 'realizada';
 const String colProvaIdMateria = 'id_materia';
+const String colProvaIdDocumento = 'id_documento';
 
 // ============= TABELA DOCUMENTO =============
 const String tableDocumento = 'documento';
+const String colDocumentoId = 'id';
 const String colDocumentoTitulo = 'titulo';
 const String colDocumentoTipo = 'tipo';
 const String colDocumentoCaminho = 'caminho';
@@ -63,7 +66,7 @@ const int tarefaPendente = 0;
 
 // ============= CONFIGURAÇÕES DO BANCO =============
 const String dbName = 'studyflow.db';
-const int dbVersion = 4;
+const int dbVersion = 5;
 const int dbTimeoutMs = 30000;
 
 // ============= QUERIES ÚTEIS =============

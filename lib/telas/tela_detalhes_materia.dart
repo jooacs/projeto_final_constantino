@@ -1,10 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/materia.dart';
 import '../models/tarefa.dart';
 import '../models/prova.dart';
+import '../models/documento.dart';
 import '../services/tarefa_service.dart';
 import '../services/prova_service.dart';
+import '../services/gemini_service.dart';
+import '../services/documento_service.dart';
 
 class TelaDetalhesMateria extends StatefulWidget {
   final Materia materia;
@@ -20,6 +28,8 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
 
   final TarefaService tarefaService = TarefaService();
   final ProvaService provaService = ProvaService();
+  final GeminiService geminiService = GeminiService();
+  final DocumentoService documentoService = DocumentoService();
 
   // Controladores para Tarefa
   final tituloTarefaController = TextEditingController();
@@ -48,6 +58,86 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     });
     carregarTarefas();
     carregarProvas();
+  }
+
+  // ================= IA & PDF =================
+  Future<void> _anexarPdf(dynamic item) async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        _mostrarSucesso('Gerando resumo via IA, por favor aguarde...');
+        
+        final summary = await geminiService.summarizePdf(result.files.single.bytes!);
+        
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
+        final savedFile = File(path.join(appDir.path, fileName));
+        await savedFile.writeAsBytes(result.files.single.bytes!);
+
+        final novoDoc = Documento(
+          titulo: 'Resumo: ${item.titulo}',
+          tipo: 'resumo',
+          caminho: savedFile.path,
+          nomeArquivo: result.files.single.name,
+          resumo: summary,
+          dataCriacao: DateTime.now().toIso8601String(),
+        );
+
+        final docId = await documentoService.insertDocumento(novoDoc);
+
+        if (item is Tarefa) {
+          item.documentoId = docId;
+          await tarefaService.atualizarTarefa(item);
+          await carregarTarefas();
+        } else if (item is Prova) {
+          item.documentoId = docId;
+          await provaService.atualizarProva(item);
+          await carregarProvas();
+        }
+        
+        _mostrarSucesso('Resumo gerado e anexado com sucesso!');
+      }
+    } catch (e) {
+      _mostrarErro('Erro ao gerar resumo: $e');
+    }
+  }
+
+  Future<void> _verResumo(int docId) async {
+    try {
+      final docs = await documentoService.getDocumentos();
+      final doc = docs.firstWhere((d) => d.id == docId);
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(doc.titulo),
+          content: SingleChildScrollView(
+            child: MarkdownBody(
+              data: doc.resumo ?? 'Sem resumo disponível.',
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(fontSize: 16, height: 1.5),
+                h1: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      _mostrarErro('Erro ao abrir documento: $e');
+    }
   }
 
   @override
@@ -466,7 +556,27 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             value: tarefa.concluida,
             activeColor: const Color(0xFF4F46E5),
             onChanged: (val) => atualizarStatusTarefa(index, val),
-            secondary: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => deletarTarefa(index)),
+            secondary: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tarefa.documentoId != null)
+                  IconButton(
+                    icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                    onPressed: () => _verResumo(tarefa.documentoId!),
+                    tooltip: 'Ver Resumo',
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                    onPressed: () => _anexarPdf(tarefa),
+                    tooltip: 'Anexar PDF (IA)',
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red), 
+                  onPressed: () => deletarTarefa(index),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -502,7 +612,27 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             value: prova.realizada,
             activeColor: const Color(0xFF4F46E5),
             onChanged: (val) => atualizarStatusProva(index, val),
-            secondary: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => deletarProva(index)),
+            secondary: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (prova.documentoId != null)
+                  IconButton(
+                    icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                    onPressed: () => _verResumo(prova.documentoId!),
+                    tooltip: 'Ver Resumo',
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                    onPressed: () => _anexarPdf(prova),
+                    tooltip: 'Anexar PDF (IA)',
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red), 
+                  onPressed: () => deletarProva(index),
+                ),
+              ],
+            ),
           ),
         );
       },

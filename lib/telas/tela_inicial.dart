@@ -3,6 +3,7 @@ import 'tela_materias.dart';
 import 'tela_resumo_pdf.dart';
 import 'tela_tarefas.dart';
 import 'tela_provas.dart';
+import 'tela_cronograma.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -50,7 +51,7 @@ class HomeScreen extends StatelessWidget {
         'title': 'Cronograma',
         'icon': Icons.calendar_month_rounded,
         'color': const Color(0xFF6366F1), // Indigo
-        'screen': null,
+        'screen': const TelaCronograma(),
       },
     ];
 

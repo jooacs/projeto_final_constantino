@@ -8,6 +8,7 @@ class Tarefa {
   DateTime? dataCriacao;
   DateTime? dataEntrega;
   DateTime? dataConclusao;
+  int? documentoId;
 
   Tarefa({
     this.id,
@@ -18,6 +19,7 @@ class Tarefa {
     this.dataCriacao,
     this.dataEntrega,
     this.dataConclusao,
+    this.documentoId,
   }) : assert(titulo.isNotEmpty, 'O título da tarefa não pode estar vazio');
 
   /// Converte o objeto Tarefa para um Map para salvar no banco de dados
@@ -31,6 +33,7 @@ class Tarefa {
       'data_criacao': dataCriacao?.toIso8601String(),
       'data_entrega': dataEntrega?.toIso8601String(),
       'data_conclusao': dataConclusao?.toIso8601String(),
+      'id_documento': documentoId,
     };
   }
 
@@ -45,6 +48,7 @@ class Tarefa {
       dataCriacao: map['data_criacao'] != null ? DateTime.parse(map['data_criacao'] as String) : null,
       dataEntrega: map['data_entrega'] != null ? DateTime.parse(map['data_entrega'] as String) : null,
       dataConclusao: map['data_conclusao'] != null ? DateTime.parse(map['data_conclusao'] as String) : null,
+      documentoId: map['id_documento'] as int?,
     );
   }
 

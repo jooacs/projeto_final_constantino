@@ -8,6 +8,7 @@ class Prova {
   double? nota;
   bool realizada;
   final int idMateria;
+  int? documentoId;
 
   Prova({
     this.id,
@@ -18,6 +19,7 @@ class Prova {
     this.nota,
     required this.realizada,
     required this.idMateria,
+    this.documentoId,
   }) : assert(titulo.isNotEmpty, 'O título da prova não pode estar vazio');
 
   Map<String, dynamic> toMap() {
@@ -30,6 +32,7 @@ class Prova {
       'nota': nota,
       'realizada': realizada ? 1 : 0,
       'id_materia': idMateria,
+      'id_documento': documentoId,
     };
   }
 
@@ -43,6 +46,7 @@ class Prova {
       nota: map['nota'] as double?,
       realizada: (map['realizada'] as int? ?? 0) == 1,
       idMateria: map['id_materia'] as int,
+      documentoId: map['id_documento'] as int?,
     );
   }
 
