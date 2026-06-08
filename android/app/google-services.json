@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "975746588528",
+    "project_id": "app-estudos-49e63",
+    "storage_bucket": "app-estudos-49e63.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:975746588528:android:db6177a71da1bc40ec79b5",
+        "android_client_info": {
+          "package_name": "com.example.projeto_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADzEHj2uQkFtketl-vHbOXCUdvdhIw1QE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
