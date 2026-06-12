@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../database/db_constants.dart';
 
 import '../models/materia.dart';
 import '../models/tarefa.dart';
@@ -32,10 +33,12 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   final DocumentoService documentoService = DocumentoService();
 
   // Controladores para Tarefa
+  // Controladores para Tarefa
   final tituloTarefaController = TextEditingController();
   final descricaoTarefaController = TextEditingController();
   DateTime? _dataCriacaoTarefa;
   DateTime? _dataEntregaTarefa;
+  String _prioridadeTarefa = prioridadeMedia; // NOVO
 
   // Controladores para Prova
   final tituloProvaController = TextEditingController();
@@ -202,6 +205,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         idMateria: widget.materia.id!,
         dataCriacao: _dataCriacaoTarefa ?? DateTime.now(),
         dataEntrega: _dataEntregaTarefa,
+        prioridade: _prioridadeTarefa,
       );
       await tarefaService.inserirTarefa(tarefa);
       if (!mounted) return;
@@ -209,6 +213,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       descricaoTarefaController.clear();
       _dataCriacaoTarefa = null;
       _dataEntregaTarefa = null;
+      _prioridadeTarefa = prioridadeMedia;
       await carregarTarefas();
       Navigator.pop(context);
       _mostrarSucesso('Tarefa adicionada com sucesso!');
@@ -337,6 +342,94 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
           ],
         );
       },
+    );
+  }
+
+  String _diasParaConcluirTexto(Tarefa tarefa) {
+    if (tarefa.concluida) return 'Concluída';
+    if (tarefa.dataEntrega == null) return 'Sem prazo definido';
+
+    final hoje = DateTime.now();
+    final hojeSemHora = DateTime(hoje.year, hoje.month, hoje.day);
+    final entregaSemHora = DateTime(
+      tarefa.dataEntrega!.year,
+      tarefa.dataEntrega!.month,
+      tarefa.dataEntrega!.day,
+    );
+
+    final diff = entregaSemHora.difference(hojeSemHora).inDays;
+
+    if (diff < 0) return 'Atrasada há ${-diff} dia(s)';
+    if (diff == 0) return 'Vence hoje';
+    if (diff == 1) return 'Vence amanhã';
+    return 'Faltam $diff dias';
+  }
+
+  Color _corDiasParaConcluir(Tarefa tarefa) {
+    if (tarefa.concluida) return const Color(0xFF94A3B8);
+    if (tarefa.dataEntrega == null) return const Color(0xFF64748B);
+
+    final hoje = DateTime.now();
+    final hojeSemHora = DateTime(hoje.year, hoje.month, hoje.day);
+    final entregaSemHora = DateTime(
+      tarefa.dataEntrega!.year,
+      tarefa.dataEntrega!.month,
+      tarefa.dataEntrega!.day,
+    );
+    final diff = entregaSemHora.difference(hojeSemHora).inDays;
+
+    if (diff < 0) return const Color(0xFFEF4444); // atrasada
+    if (diff <= 1) return const Color(0xFFF59E0B); // hoje/amanhã
+    return const Color(0xFF10B981); // tranquilo
+  }
+
+  Color _corPrioridade(String prioridade) {
+    switch (prioridade) {
+      case prioridadeAlta:
+        return const Color(0xFFEF4444);
+      case prioridadeBaixa:
+        return const Color(0xFF10B981);
+      default:
+        return const Color(0xFFF59E0B);
+    }
+  }
+
+  String _labelPrioridade(String prioridade) {
+    switch (prioridade) {
+      case prioridadeAlta:
+        return 'Alta';
+      case prioridadeBaixa:
+        return 'Baixa';
+      default:
+        return 'Média';
+    }
+  }
+
+  Widget _buildChip(String texto, Color cor, {IconData? icone}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icone != null) ...[
+            Icon(icone, size: 12, color: cor),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            texto,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: cor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -536,44 +629,83 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       itemCount: tarefas.length,
       itemBuilder: (context, index) {
         final tarefa = tarefas[index];
-        String datasTexto = '';
-        if (tarefa.dataCriacao != null) datasTexto += 'Criado em: ${_formatDate(tarefa.dataCriacao!)}';
-        if (tarefa.dataEntrega != null) datasTexto += '\nEntrega: ${_formatDate(tarefa.dataEntrega!)}';
-        if (tarefa.concluida && tarefa.dataConclusao != null) datasTexto += '\nConcluído em: ${_formatDate(tarefa.dataConclusao!)}';
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: CheckboxListTile(
-            title: Text(tarefa.titulo, style: TextStyle(fontWeight: FontWeight.bold, decoration: tarefa.concluida ? TextDecoration.lineThrough : null)),
-            subtitle: Column(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (tarefa.descricao.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: Text(tarefa.descricao)),
-                if (datasTexto.isNotEmpty) Text(datasTexto, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4)),
-              ],
-            ),
-            value: tarefa.concluida,
-            activeColor: const Color(0xFF4F46E5),
-            onChanged: (val) => atualizarStatusTarefa(index, val),
-            secondary: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (tarefa.documentoId != null)
-                  IconButton(
-                    icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
-                    onPressed: () => _verResumo(tarefa.documentoId!),
-                    tooltip: 'Ver Resumo',
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
-                    onPressed: () => _anexarPdf(tarefa),
-                    tooltip: 'Anexar PDF (IA)',
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    tarefa.titulo,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      decoration: tarefa.concluida ? TextDecoration.lineThrough : null,
+                    ),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red), 
-                  onPressed: () => deletarTarefa(index),
+                  subtitle: tarefa.descricao.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(tarefa.descricao),
+                        )
+                      : null,
+                  value: tarefa.concluida,
+                  activeColor: const Color(0xFF4F46E5),
+                  onChanged: (val) => atualizarStatusTarefa(index, val),
+                  secondary: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (tarefa.documentoId != null)
+                        IconButton(
+                          icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                          onPressed: () => _verResumo(tarefa.documentoId!),
+                          tooltip: 'Ver Resumo',
+                        )
+                      else
+                        IconButton(
+                          icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                          onPressed: () => _anexarPdf(tarefa),
+                          tooltip: 'Anexar PDF (IA)',
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => deletarTarefa(index),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildChip(
+                        _labelPrioridade(tarefa.prioridade),
+                        _corPrioridade(tarefa.prioridade),
+                        icone: Icons.flag_rounded,
+                      ),
+                      _buildChip(
+                        _diasParaConcluirTexto(tarefa),
+                        _corDiasParaConcluir(tarefa),
+                        icone: Icons.event_rounded,
+                      ),
+                      if (tarefa.dataEntrega != null)
+                        _buildChip(
+                          'Entrega: ${_formatDate(tarefa.dataEntrega!)}',
+                          const Color(0xFF64748B),
+                        ),
+                      if (tarefa.concluida && tarefa.dataConclusao != null)
+                        _buildChip(
+                          'Concluída em: ${_formatDate(tarefa.dataConclusao!)}',
+                          const Color(0xFF94A3B8),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),

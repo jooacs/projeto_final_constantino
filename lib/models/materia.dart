@@ -9,6 +9,7 @@ class Materia {
   String horario;
   double metaHoras;
   String status;
+  String? idUsuario;
 
   Materia({
     this.id,
@@ -18,6 +19,7 @@ class Materia {
     this.horario = '',
     this.metaHoras = 0,
     this.status = 'ativa',
+    this.idUsuario,
   }) : assert(nome.isNotEmpty, 'O nome da matéria não pode estar vazio');
 
   /// Converte o objeto Materia para um Map para salvar no banco de dados
@@ -30,6 +32,7 @@ class Materia {
       'horario': horario.trim(),
       'meta_horas': metaHoras,
       'status': status.trim(),
+      'id_usuario': idUsuario,
     };
   }
 
@@ -43,6 +46,7 @@ class Materia {
       horario: (map['horario'] ?? '').toString().trim(),
       metaHoras: ((map['meta_horas'] ?? 0) as num).toDouble(),
       status: (map['status'] ?? 'ativa').toString().trim(),
+      idUsuario: map['id_usuario'] as String?,
     );
   }
 

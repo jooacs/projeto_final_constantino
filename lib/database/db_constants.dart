@@ -3,6 +3,10 @@
 /// Centraliza todas as constantes relacionadas ao banco de dados
 /// para evitar repetição e facilitar manutenção
 
+
+// ============= COLUNA COMUM (MULTI-USUÁRIO) =============
+const String colIdUsuario = 'id_usuario';
+
 // ============= NOMES DE TABELAS =============
 const String tableMateria = 'materia';
 const String tableTarefa = 'tarefa';
@@ -26,6 +30,12 @@ const String colTarefaDataCriacao = 'data_criacao';
 const String colTarefaDataEntrega = 'data_entrega';
 const String colTarefaDataConclusao = 'data_conclusao';
 const String colTarefaIdDocumento = 'id_documento';
+const String colTarefaPrioridade = 'prioridade'; // NOVO
+
+// ============= NÍVEIS DE PRIORIDADE =============
+const String prioridadeBaixa = 'baixa';
+const String prioridadeMedia = 'media';
+const String prioridadeAlta = 'alta';
 
 // ============= TABELA PROVA =============
 const String tableProva = 'prova';
@@ -66,51 +76,46 @@ const int tarefaPendente = 0;
 
 // ============= CONFIGURAÇÕES DO BANCO =============
 const String dbName = 'studyflow.db';
-const int dbVersion = 5;
+const int dbVersion = 7;
 const int dbTimeoutMs = 30000;
 
 // ============= QUERIES ÚTEIS =============
 class DbQueries {
-  /// Query para contar tarefas concluídas de uma matéria
   static String countTarefasConcluidas(int idMateria) =>
       'SELECT COUNT(*) as total FROM $tableTarefa '
-      'WHERE $colTarefaIdMateria = ? AND $colTarefaConcluida = 1';
+      'WHERE $colTarefaIdMateria = ? AND $colTarefaConcluida = 1 AND $colIdUsuario = ?';
 
-  /// Query para contar tarefas pendentes de uma matéria
   static String countTarefasPendentes(int idMateria) =>
       'SELECT COUNT(*) as total FROM $tableTarefa '
-      'WHERE $colTarefaIdMateria = ? AND $colTarefaConcluida = 0';
+      'WHERE $colTarefaIdMateria = ? AND $colTarefaConcluida = 0 AND $colIdUsuario = ?';
 
-  /// Query para obter progresso de uma matéria (percentual de tarefas concluídas)
   static String getProgressoMateria(int idMateria) =>
       'SELECT '
       '  CAST(SUM(CASE WHEN $colTarefaConcluida = 1 THEN 1 ELSE 0 END) as REAL) / '
       '  COUNT(*) * 100 as progresso '
       'FROM $tableTarefa '
-      'WHERE $colTarefaIdMateria = ?';
+      'WHERE $colTarefaIdMateria = ? AND $colIdUsuario = ?';
 
-  /// Query para obter todas as matérias com contagem de tarefas
   static String getMaterialWithTaskCount() =>
       'SELECT m.*, '
       '  COUNT(t.$colTarefaId) as task_count, '
       '  SUM(CASE WHEN t.$colTarefaConcluida = 1 THEN 1 ELSE 0 END) as completed_count '
       'FROM $tableMateria m '
       'LEFT JOIN $tableTarefa t ON m.$colMateriaId = t.$colTarefaIdMateria '
+      'WHERE m.$colIdUsuario = ? '
       'GROUP BY m.$colMateriaId '
       'ORDER BY m.$colMateriaNome ASC';
 
-  /// Query para obter tarefas agrupadas por status
   static String getTarefasGroupedByStatus(int idMateria) =>
       'SELECT $colTarefaConcluida, COUNT(*) as quantidade '
       'FROM $tableTarefa '
-      'WHERE $colTarefaIdMateria = ? '
+      'WHERE $colTarefaIdMateria = ? AND $colIdUsuario = ? '
       'GROUP BY $colTarefaConcluida';
 
-  /// Query para obter informações resumidas do banco
   static String getDatabaseStats() =>
       'SELECT '
-      '  (SELECT COUNT(*) FROM $tableMateria) as total_materias, '
-      '  (SELECT COUNT(*) FROM $tableTarefa) as total_tarefas, '
-      '  (SELECT COUNT(*) FROM $tableTarefa WHERE $colTarefaConcluida = 1) as tarefas_concluidas, '
-      '  (SELECT COUNT(*) FROM $tableTarefa WHERE $colTarefaConcluida = 0) as tarefas_pendentes';
+      '  (SELECT COUNT(*) FROM $tableMateria WHERE $colIdUsuario = ?) as total_materias, '
+      '  (SELECT COUNT(*) FROM $tableTarefa WHERE $colIdUsuario = ?) as total_tarefas, '
+      '  (SELECT COUNT(*) FROM $tableTarefa WHERE $colTarefaConcluida = 1 AND $colIdUsuario = ?) as tarefas_concluidas, '
+      '  (SELECT COUNT(*) FROM $tableTarefa WHERE $colTarefaConcluida = 0 AND $colIdUsuario = ?) as tarefas_pendentes';
 }

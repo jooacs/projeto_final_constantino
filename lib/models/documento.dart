@@ -9,6 +9,7 @@ class Documento {
   String? resumo;
   String? questoes; // JSON das questões
   String dataCriacao;
+  String? idUsuario;
 
   Documento({
     this.id,
@@ -19,6 +20,7 @@ class Documento {
     this.resumo,
     this.questoes,
     required this.dataCriacao,
+    this.idUsuario,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class Documento {
       colDocumentoResumo: resumo,
       colDocumentoQuestoes: questoes,
       colDocumentoDataCriacao: dataCriacao,
+      colIdUsuario: idUsuario,
     };
   }
 
@@ -44,6 +47,7 @@ class Documento {
       resumo: map[colDocumentoResumo],
       questoes: map[colDocumentoQuestoes],
       dataCriacao: map[colDocumentoDataCriacao],
+      idUsuario: map[colIdUsuario] as String?,
     );
   }
 }

@@ -1,5 +1,6 @@
 import '../database/database_helper.dart';
 import '../models/tarefa.dart';
+import 'auth_service.dart';
 
 /// Serviço responsável por operações CRUD de Tarefas
 class TarefaService {
@@ -12,13 +13,15 @@ class TarefaService {
       if (tarefa.titulo.trim().isEmpty) {
         throw ArgumentError('O título da tarefa não pode estar vazio');
       }
-
       if (tarefa.idMateria <= 0) {
         throw ArgumentError('ID da matéria inválido');
       }
 
-      final db = await DatabaseHelper.instance.database;
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
+      tarefa.idUsuario = uid;
 
+      final db = await DatabaseHelper.instance.database;
       return await db.insert('tarefa', tarefa.toMap());
     } catch (e) {
       throw Exception('Erro ao inserir tarefa: $e');
@@ -31,19 +34,17 @@ class TarefaService {
   /// Lança exceção se houver erro na consulta
   Future<List<Tarefa>> buscarPorMateria(int idMateria) async {
     try {
-      if (idMateria <= 0) {
-        throw ArgumentError('ID da matéria inválido');
-      }
+      if (idMateria <= 0) throw ArgumentError('ID da matéria inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) return [];
 
       final db = await DatabaseHelper.instance.database;
-
       final result = await db.query(
         'tarefa',
-        where: 'id_materia = ?',
-        whereArgs: [idMateria],
+        where: 'id_materia = ? AND id_usuario = ?',
+        whereArgs: [idMateria, uid],
         orderBy: 'concluida ASC, titulo ASC',
       );
-
       return result.map((e) => Tarefa.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar tarefas: $e');
@@ -56,16 +57,17 @@ class TarefaService {
   /// Lança exceção se houver erro na consulta
   Future<Tarefa?> buscarTarefaPorId(int id) async {
     try {
-      if (id <= 0) {
-        throw ArgumentError('ID inválido');
-      }
+      if (id <= 0) throw ArgumentError('ID inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) return null;
 
       final db = await DatabaseHelper.instance.database;
-
-      final result = await db.query('tarefa', where: 'id = ?', whereArgs: [id]);
-
+      final result = await db.query(
+        'tarefa',
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
       if (result.isEmpty) return null;
-
       return Tarefa.fromMap(result.first);
     } catch (e) {
       throw Exception('Erro ao buscar tarefa: $e');
@@ -78,19 +80,17 @@ class TarefaService {
   /// Lança exceção se houver erro na consulta
   Future<List<Tarefa>> buscarTarefasPendentes(int idMateria) async {
     try {
-      if (idMateria <= 0) {
-        throw ArgumentError('ID da matéria inválido');
-      }
+      if (idMateria <= 0) throw ArgumentError('ID da matéria inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) return [];
 
       final db = await DatabaseHelper.instance.database;
-
       final result = await db.query(
         'tarefa',
-        where: 'id_materia = ? AND concluida = 0',
-        whereArgs: [idMateria],
+        where: 'id_materia = ? AND concluida = 0 AND id_usuario = ?',
+        whereArgs: [idMateria, uid],
         orderBy: 'titulo ASC',
       );
-
       return result.map((e) => Tarefa.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erro ao buscar tarefas pendentes: $e');
@@ -103,9 +103,14 @@ class TarefaService {
   /// Lança exceção se houver erro na consulta
   Future<List<Tarefa>> buscarTodas() async {
     try {
+      final uid = AuthService.currentUserId;
+      if (uid == null) return [];
+
       final db = await DatabaseHelper.instance.database;
       final result = await db.query(
         'tarefa',
+        where: 'id_usuario = ?',
+        whereArgs: [uid],
         orderBy: 'concluida ASC, data_entrega ASC, titulo ASC',
       );
       return result.map((e) => Tarefa.fromMap(e)).toList();
@@ -123,18 +128,18 @@ class TarefaService {
       if (tarefa.id == null || tarefa.id! <= 0) {
         throw ArgumentError('ID da tarefa inválido');
       }
-
       if (tarefa.titulo.trim().isEmpty) {
         throw ArgumentError('O título da tarefa não pode estar vazio');
       }
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-
       return await db.update(
         'tarefa',
         tarefa.toMap(),
-        where: 'id = ?',
-        whereArgs: [tarefa.id],
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [tarefa.id, uid],
       );
     } catch (e) {
       throw Exception('Erro ao atualizar tarefa: $e');
@@ -147,13 +152,12 @@ class TarefaService {
   /// Lança exceção se houver erro na exclusão
   Future<int> removerTarefa(int id) async {
     try {
-      if (id <= 0) {
-        throw ArgumentError('ID inválido');
-      }
+      if (id <= 0) throw ArgumentError('ID inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-
-      return await db.delete('tarefa', where: 'id = ?', whereArgs: [id]);
+      return await db.delete('tarefa', where: 'id = ? AND id_usuario = ?', whereArgs: [id, uid]);
     } catch (e) {
       throw Exception('Erro ao remover tarefa: $e');
     }
@@ -164,17 +168,15 @@ class TarefaService {
   /// Útil para calcular progresso/estatísticas
   Future<int> contarTarefasConcluidas(int idMateria) async {
     try {
-      if (idMateria <= 0) {
-        throw ArgumentError('ID da matéria inválido');
-      }
+      if (idMateria <= 0) throw ArgumentError('ID da matéria inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) return 0;
 
       final db = await DatabaseHelper.instance.database;
-
       final result = await db.rawQuery(
-        'SELECT COUNT(*) as total FROM tarefa WHERE id_materia = ? AND concluida = 1',
-        [idMateria],
+        'SELECT COUNT(*) as total FROM tarefa WHERE id_materia = ? AND concluida = 1 AND id_usuario = ?',
+        [idMateria, uid],
       );
-
       return (result.first['total'] as int?) ?? 0;
     } catch (e) {
       throw Exception('Erro ao contar tarefas concluídas: $e');
