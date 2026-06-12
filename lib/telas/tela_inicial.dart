@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import '../database/db_utils.dart';
 import '../services/prova_service.dart';
-import '../services/tarefa_service.dart';
 import '../services/auth_service.dart';
 import 'tela_materias.dart';
 import 'tela_resumo_pdf.dart';
@@ -25,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _proximaProva;
 
   final ProvaService _provaService = ProvaService();
-  final TarefaService _tarefaService = TarefaService();
   final AuthService _authService = AuthService();
 
   @override
@@ -113,49 +111,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Map<String, dynamic>> get _modules => [
-        {
-          'title': 'Matérias',
-          'icon': Icons.menu_book_rounded,
-          'color': const Color(0xFF3B82F6),
-          'screen': const TelaMaterias(),
-        },
-        {
-          'title': 'Notas',
-          'icon': Icons.star_rounded,
-          'color': const Color(0xFFF59E0B),
-          'screen': null,
-        },
-        {
-          'title': 'Tarefas',
-          'icon': Icons.task_alt_rounded,
-          'color': const Color(0xFF10B981),
-          'screen': const TelaTarefas(),
-        },
-        {
-          'title': 'Provas',
-          'icon': Icons.assignment_late_rounded,
-          'color': const Color(0xFFEF4444),
-          'screen': const TelaProvas(),
-        },
-        {
-          'title': 'Resumos IA',
-          'icon': Icons.auto_awesome_rounded,
-          'color': const Color(0xFF8B5CF6),
-          'screen': const TelaResumoPdf(),
-        },
-        {
-          'title': 'Metas',
-          'icon': Icons.flag_rounded,
-          'color': const Color(0xFF14B8A6),
-          'screen': null,
-        },
-        {
-          'title': 'Cronograma',
-          'icon': Icons.calendar_month_rounded,
-          'color': const Color(0xFF6366F1),
-          'screen': const TelaCronograma(),
-        },
-      ];
+    {
+      'title': 'Matérias',
+      'icon': Icons.menu_book_rounded,
+      'color': const Color(0xFF3B82F6),
+      'screen': const TelaMaterias(),
+    },
+    {
+      'title': 'Notas',
+      'icon': Icons.star_rounded,
+      'color': const Color(0xFFF59E0B),
+      'screen': null,
+    },
+    {
+      'title': 'Tarefas',
+      'icon': Icons.task_alt_rounded,
+      'color': const Color(0xFF10B981),
+      'screen': const TelaTarefas(),
+    },
+    {
+      'title': 'Provas',
+      'icon': Icons.assignment_late_rounded,
+      'color': const Color(0xFFEF4444),
+      'screen': const TelaProvas(),
+    },
+    {
+      'title': 'Resumos IA',
+      'icon': Icons.auto_awesome_rounded,
+      'color': const Color(0xFF8B5CF6),
+      'screen': const TelaResumoPdf(),
+    },
+    {
+      'title': 'Metas',
+      'icon': Icons.flag_rounded,
+      'color': const Color(0xFF14B8A6),
+      'screen': null,
+    },
+    {
+      'title': 'Cronograma',
+      'icon': Icons.calendar_month_rounded,
+      'color': const Color(0xFF6366F1),
+      'screen': const TelaCronograma(),
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -206,15 +204,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     Text(
                       'O que vamos estudar hoje?',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: const Color(0xFF64748B),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     _buildStatsBanner(),
@@ -232,7 +233,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     childAspectRatio: 1.05,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildDashboardCard(context, _modules[index]),
+                    (context, index) =>
+                        _buildDashboardCard(context, _modules[index]),
                     childCount: _modules.length,
                   ),
                 ),
@@ -429,7 +431,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDashboardCard(BuildContext context, Map<String, dynamic> module) {
+  Widget _buildDashboardCard(
+    BuildContext context,
+    Map<String, dynamic> module,
+  ) {
     final bool isImplemented = module['screen'] != null;
     final Color cardColor = module['color'] as Color;
     final screen = module['screen'] as Widget?;
@@ -481,7 +486,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: cardColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(module['icon'] as IconData, size: 32, color: cardColor),
+                  child: Icon(
+                    module['icon'] as IconData,
+                    size: 32,
+                    color: cardColor,
+                  ),
                 ),
                 Text(
                   module['title'] as String,

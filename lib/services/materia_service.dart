@@ -1,5 +1,6 @@
 import '../database/database_helper.dart';
 import '../models/materia.dart';
+import 'auth_service.dart';
 
 /// Serviço responsável por operações CRUD de Matérias
 class MateriaService {
@@ -12,6 +13,11 @@ class MateriaService {
       if (materia.nome.trim().isEmpty) {
         throw ArgumentError('O nome da matéria não pode estar vazio');
       }
+
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
+
+      materia.idUsuario = uid;
 
       final db = await DatabaseHelper.instance.database;
 
@@ -27,9 +33,16 @@ class MateriaService {
   /// Lança exceção se houver erro na consulta
   Future<List<Materia>> buscarMaterias() async {
     try {
+      final uid = AuthService.currentUserId;
+      if (uid == null) return [];
       final db = await DatabaseHelper.instance.database;
 
-      final result = await db.query('materia', orderBy: 'nome ASC');
+      final result = await db.query(
+        'materia',
+        where: 'id_usuario = ?',
+        whereArgs: [uid],
+        orderBy: 'nome ASC',
+      );
 
       return result.map((e) => Materia.fromMap(e)).toList();
     } catch (e) {
@@ -43,20 +56,18 @@ class MateriaService {
   /// Lança exceção se houver erro na consulta
   Future<Materia?> buscarMateriaPorId(int id) async {
     try {
-      if (id <= 0) {
-        throw ArgumentError('ID inválido');
-      }
+      if (id <= 0) throw ArgumentError('ID inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) return null;
 
       final db = await DatabaseHelper.instance.database;
-
       final result = await db.query(
         'materia',
-        where: 'id = ?',
-        whereArgs: [id],
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
       );
 
       if (result.isEmpty) return null;
-
       return Materia.fromMap(result.first);
     } catch (e) {
       throw Exception('Erro ao buscar matéria: $e');
@@ -72,18 +83,18 @@ class MateriaService {
       if (materia.id == null || materia.id! <= 0) {
         throw ArgumentError('ID da matéria inválido');
       }
-
       if (materia.nome.trim().isEmpty) {
         throw ArgumentError('O nome da matéria não pode estar vazio');
       }
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-
       return await db.update(
         'materia',
         materia.toMap(),
-        where: 'id = ?',
-        whereArgs: [materia.id],
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [materia.id, uid],
       );
     } catch (e) {
       throw Exception('Erro ao atualizar matéria: $e');
@@ -97,17 +108,14 @@ class MateriaService {
   /// Lança exceção se houver erro na exclusão
   Future<int> removerMateria(int id) async {
     try {
-      if (id <= 0) {
-        throw ArgumentError('ID inválido');
-      }
+      if (id <= 0) throw ArgumentError('ID inválido');
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-
-      // Primeiro remove as tarefas associadas
-      await db.delete('tarefa', where: 'id_materia = ?', whereArgs: [id]);
-
-      // Depois remove a matéria
-      return await db.delete('materia', where: 'id = ?', whereArgs: [id]);
+      await db.delete('tarefa', where: 'id_materia = ? AND id_usuario = ?', whereArgs: [id, uid]);
+      await db.delete('prova', where: 'id_materia = ? AND id_usuario = ?', whereArgs: [id, uid]);
+      return await db.delete('materia', where: 'id = ? AND id_usuario = ?', whereArgs: [id, uid]);
     } catch (e) {
       throw Exception('Erro ao remover matéria: $e');
     }

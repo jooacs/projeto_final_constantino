@@ -9,6 +9,8 @@ class Tarefa {
   DateTime? dataEntrega;
   DateTime? dataConclusao;
   int? documentoId;
+  String? idUsuario;
+  String prioridade;
 
   Tarefa({
     this.id,
@@ -20,6 +22,8 @@ class Tarefa {
     this.dataEntrega,
     this.dataConclusao,
     this.documentoId,
+    this.idUsuario,
+    this.prioridade = 'media',
   }) : assert(titulo.isNotEmpty, 'O título da tarefa não pode estar vazio');
 
   /// Converte o objeto Tarefa para um Map para salvar no banco de dados
@@ -34,6 +38,8 @@ class Tarefa {
       'data_entrega': dataEntrega?.toIso8601String(),
       'data_conclusao': dataConclusao?.toIso8601String(),
       'id_documento': documentoId,
+      'id_usuario': idUsuario,
+      'prioridade': prioridade,
     };
   }
 
@@ -49,12 +55,14 @@ class Tarefa {
       dataEntrega: map['data_entrega'] != null ? DateTime.parse(map['data_entrega'] as String) : null,
       dataConclusao: map['data_conclusao'] != null ? DateTime.parse(map['data_conclusao'] as String) : null,
       documentoId: map['id_documento'] as int?,
+      idUsuario: map['id_usuario'] as String?,
+      prioridade: (map['prioridade'] ?? 'media').toString(),
     );
   }
 
   @override
   String toString() =>
-      'Tarefa(id: $id, titulo: $titulo, concluida: $concluida, dataEntrega: $dataEntrega)';
+      'Tarefa(id: $id, titulo: $titulo, concluida: $concluida, dataEntrega: $dataEntrega, prioridade: $prioridade)';
 
   @override
   bool operator ==(Object other) =>

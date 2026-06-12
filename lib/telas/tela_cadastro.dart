@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'tela_inicial.dart';
 import 'tela_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
@@ -16,6 +16,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final senhaController = TextEditingController();
   final confirmaSenhaController = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingGoogle = false;
   String? _errorMessage;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -140,6 +141,39 @@ class _SignupScreenState extends State<SignupScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loginComGoogle() async {
+    setState(() {
+      _isLoadingGoogle = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await AuthService().loginComGoogle();
+      if (result == null) {
+        setState(() => _isLoadingGoogle = false);
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'Erro ao entrar com Google.';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao entrar com Google. Tente novamente.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingGoogle = false);
       }
     }
   }
@@ -402,6 +436,27 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: _isLoadingGoogle
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.login, size: 20),
+                      label: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text(
+                          'Cadastrar com Google',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      onPressed: _isLoadingGoogle ? null : _loginComGoogle,
                     ),
                   ),
                   const SizedBox(height: 24),

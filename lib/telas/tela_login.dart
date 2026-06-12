@@ -15,7 +15,41 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final senhaController = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingGoogle = false;
   String? _errorMessage;
+
+  Future<void> _loginComGoogle() async {
+    setState(() {
+      _isLoadingGoogle = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await AuthService().loginComGoogle();
+      if (result == null) {
+        setState(() => _isLoadingGoogle = false);
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? 'Erro ao entrar com Google.';
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao entrar com Google. Tente novamente.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingGoogle = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -104,16 +138,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Bem-vindo(a)!',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Organize seus estudos em um só lugar.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 48),
                 Container(
@@ -190,7 +224,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF4F46E5),
                             foregroundColor: Colors.white,
-                            shadowColor: const Color(0xFF4F46E5).withOpacity(0.5),
+                            shadowColor: const Color(
+                              0xFF4F46E5,
+                            ).withOpacity(0.5),
                             elevation: 8,
                             padding: const EdgeInsets.symmetric(vertical: 18),
                           ),
@@ -214,6 +250,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                     letterSpacing: 1.2,
                                   ),
                                 ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: _isLoadingGoogle
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.login, size: 20),
+                          label: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            child: Text(
+                              'Entrar com Google',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          onPressed: _isLoadingGoogle ? null : _loginComGoogle,
                         ),
                       ),
                       const SizedBox(height: 16),

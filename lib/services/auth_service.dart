@@ -1,9 +1,12 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  /// UID do usuário autenticado, ou null se não houver sessão ativa
+  static String? get currentUserId => FirebaseAuth.instance.currentUser?.uid;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
   Future<UserCredential> login({
     required String email,
@@ -69,11 +72,57 @@ class AuthService {
     }
   }
 
+  Future<UserCredential?> loginComGoogle() async {
+    try {
+      if (kDebugMode) {
+        print('[AuthService] Iniciando login com Google');
+      }
+
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        if (kDebugMode) {
+          print('[AuthService] Login com Google cancelado pelo usuário');
+        }
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final result = await _auth.signInWithCredential(credential);
+      if (kDebugMode) {
+        print(
+          '[AuthService] Login com Google bem-sucedido: ${result.user?.email}',
+        );
+      }
+
+      return result;
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[AuthService] Erro no login com Google: ${e.code} - ${e.message}',
+        );
+      }
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[AuthService] Erro desconhecido no login com Google: $e');
+      }
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     try {
       if (kDebugMode) {
         print('[AuthService] Fazendo logout');
       }
+      await _googleSignIn.signOut();
       await _auth.signOut();
       if (kDebugMode) {
         print('[AuthService] Logout bem-sucedido');
