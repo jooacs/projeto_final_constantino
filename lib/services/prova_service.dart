@@ -13,7 +13,31 @@ class ProvaService {
       prova.idUsuario = uid;
 
       final db = await DatabaseHelper.instance.database;
-      return await db.insert('prova', prova.toMap());
+
+      // Mapa seguro — apenas colunas que sabemos que existem
+      final map = <String, dynamic>{
+        'titulo': prova.titulo.trim(),
+        'descricao': prova.descricao.trim(),
+        'realizada': prova.realizada ? 1 : 0,
+        'id_materia': prova.idMateria,
+        'id_usuario': uid,
+      };
+
+      // Adiciona campos opcionais apenas se não nulos
+      if (prova.dataCriacao != null) {
+        map['data_criacao'] = prova.dataCriacao!.toIso8601String();
+      }
+      if (prova.dataProva != null) {
+        map['data_prova'] = prova.dataProva!.toIso8601String();
+      }
+      if (prova.nota != null) {
+        map['nota'] = prova.nota;
+      }
+      if (prova.documentoId != null) {
+        map['id_documento'] = prova.documentoId;
+      }
+
+      return await db.insert('prova', map);
     } catch (e) {
       throw Exception('Erro ao inserir prova: $e');
     }
@@ -61,9 +85,29 @@ class ProvaService {
       if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
+
+      final map = <String, dynamic>{
+        'titulo': prova.titulo.trim(),
+        'descricao': prova.descricao.trim(),
+        'realizada': prova.realizada ? 1 : 0,
+        'id_materia': prova.idMateria,
+        'id_usuario': uid,
+      };
+
+      if (prova.dataCriacao != null) {
+        map['data_criacao'] = prova.dataCriacao!.toIso8601String();
+      }
+      if (prova.dataProva != null) {
+        map['data_prova'] = prova.dataProva!.toIso8601String();
+      }
+      map['nota'] = prova.nota; // Pode ser null para limpar a nota
+      if (prova.documentoId != null) {
+        map['id_documento'] = prova.documentoId;
+      }
+
       return await db.update(
         'prova',
-        prova.toMap(),
+        map,
         where: 'id = ? AND id_usuario = ?',
         whereArgs: [prova.id, uid],
       );
@@ -78,7 +122,11 @@ class ProvaService {
       if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-      return await db.delete('prova', where: 'id = ? AND id_usuario = ?', whereArgs: [id, uid]);
+      return await db.delete(
+        'prova',
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
     } catch (e) {
       throw Exception('Erro ao remover prova: $e');
     }

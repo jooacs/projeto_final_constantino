@@ -1,30 +1,24 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-/// Classe responsável pelo gerenciamento do banco de dados
-///
-/// Implementa o padrão Singleton para garantir uma única instância
-/// do banco de dados em toda a aplicação
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
-
   static Database? _database;
 
-  // Constantes para configuração do banco
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 7;
+  static const int _dbVersion = 9; // v9: adiciona tabela nota
 
   // Tabelas
   static const String tableMateria = 'materia';
   static const String tableTarefa = 'tarefa';
   static const String tableProva = 'prova';
   static const String tableDocumento = 'documento';
+  static const String tableNota = 'nota'; // NOVA
 
-  // Coluna comum multi-usuário
+  // Coluna comum
   static const String colIdUsuario = 'id_usuario';
 
-  // Colunas de materia
-
+  // Materia
   static const String colMateriaId = 'id';
   static const String colMateriaNome = 'nome';
   static const String colMateriaProfessor = 'professor';
@@ -33,8 +27,7 @@ class DatabaseHelper {
   static const String colMateriaMetaHoras = 'meta_horas';
   static const String colMateriaStatus = 'status';
 
-  // Colunas de tarefa
-  // Coluna comum multi-usuário
+  // Tarefa
   static const String colTarefaId = 'id';
   static const String colTarefaTitulo = 'titulo';
   static const String colTarefaDescricao = 'descricao';
@@ -46,7 +39,7 @@ class DatabaseHelper {
   static const String colTarefaIdDocumento = 'id_documento';
   static const String colTarefaPrioridade = 'prioridade';
 
-  // Colunas de prova
+  // Prova
   static const String colProvaId = 'id';
   static const String colProvaTitulo = 'titulo';
   static const String colProvaDescricao = 'descricao';
@@ -57,7 +50,7 @@ class DatabaseHelper {
   static const String colProvaIdMateria = 'id_materia';
   static const String colProvaIdDocumento = 'id_documento';
 
-  // Colunas de documento
+  // Documento
   static const String colDocumentoId = 'id';
   static const String colDocumentoTitulo = 'titulo';
   static const String colDocumentoTipo = 'tipo';
@@ -73,26 +66,23 @@ class DatabaseHelper {
   static const String colDocumentoErro = 'erro';
   static const String colDocumentoDataCriacao = 'data_criacao';
 
+  // Nota (NOVA)
+  static const String colNotaId = 'id';
+  static const String colNotaIdMateria = 'id_materia';
+  static const String colNotaDescricao = 'descricao';
+  static const String colNotaValor = 'valor';
+  static const String colNotaPeso = 'peso';
+  static const String colNotaTipo = 'tipo';
+  static const String colNotaData = 'data';
+
   DatabaseHelper._init();
 
-  /// Retorna a instância do banco de dados
-  ///
-  /// Inicializa o banco se ainda não foi feito
-  /// Garante uma única conexão durante toda a vida da aplicação
   Future<Database> get database async {
-    if (_database != null) {
-      return _database!;
-    }
-
+    if (_database != null) return _database!;
     _database = await _initDB();
-
     return _database!;
   }
 
-  /// Inicializa o banco de dados
-  ///
-  /// Cria o arquivo do banco e estabelece a conexão
-  /// Lança exceção se houver erro na inicialização
   Future<Database> _initDB() async {
     try {
       final dbPath = await getDatabasesPath();
@@ -106,7 +96,8 @@ class DatabaseHelper {
         onUpgrade: _upgradeDB,
       );
 
-      await _ensureTarefaTableSchema(db);
+      // Garante schema completo em bancos antigos
+      await _ensureAllColumnsExist(db);
 
       return db;
     } catch (e) {
@@ -114,34 +105,25 @@ class DatabaseHelper {
     }
   }
 
-  /// Configura o banco de dados antes da criação/upgrade
-  ///
-  /// Ativa suporte a foreign keys para garantir integridade referencial
   Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
-  /// Cria as tabelas do banco de dados na primeira execução
-  ///
-  /// Define o schema inicial de todas as tabelas
-  /// Lança exceção se houver erro na criação
   Future<void> _createDB(Database db, int version) async {
     try {
-      // Criar tabela materia
       await db.execute('''
-  CREATE TABLE $tableMateria(
-    $colMateriaId INTEGER PRIMARY KEY AUTOINCREMENT,
-    $colMateriaNome TEXT NOT NULL UNIQUE,
-    $colMateriaProfessor TEXT,
-    $colMateriaCor INTEGER,
-    $colMateriaHorario TEXT,
-    $colMateriaMetaHoras REAL DEFAULT 0,
-    $colMateriaStatus TEXT DEFAULT 'ativa',
-    $colIdUsuario TEXT
-  )
-''');
+        CREATE TABLE $tableMateria(
+          $colMateriaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colMateriaNome TEXT NOT NULL UNIQUE,
+          $colMateriaProfessor TEXT,
+          $colMateriaCor INTEGER,
+          $colMateriaHorario TEXT,
+          $colMateriaMetaHoras REAL DEFAULT 0,
+          $colMateriaStatus TEXT DEFAULT 'ativa',
+          $colIdUsuario TEXT
+        )
+      ''');
 
-      // Criar tabela tarefa
       await db.execute('''
         CREATE TABLE $tableTarefa(
           $colTarefaId INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,321 +137,273 @@ class DatabaseHelper {
           $colTarefaDataConclusao TEXT,
           $colTarefaPrioridade TEXT DEFAULT 'media',
           $colIdUsuario TEXT,
-          FOREIGN KEY($colTarefaIdMateria)
-            REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+          FOREIGN KEY($colTarefaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
         )
       ''');
 
-      // Criar tabela documento
       await db.execute('''
-  CREATE TABLE $tableDocumento(
-    $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
-    $colDocumentoTitulo TEXT NOT NULL,
-    $colDocumentoTipo TEXT,
-    $colDocumentoCaminho TEXT NOT NULL,
-    $colDocumentoNomeArquivo TEXT NOT NULL,
-    $colDocumentoDescricao TEXT,
-    $colDocumentoResumo TEXT,
-    $colDocumentoTopicos TEXT,
-    $colDocumentoSugeridos TEXT,
-    $colDocumentoQuestoes TEXT,
-    $colDocumentoRespostas TEXT,
-    $colDocumentoStatus TEXT DEFAULT 'pendente',
-    $colDocumentoErro TEXT,
-    $colDocumentoDataCriacao TEXT NOT NULL,
-    $colIdUsuario TEXT
-  )
-''');
-      // Criar tabela prova
-      await db.execute('''
-  CREATE TABLE $tableProva(
-    $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
-    $colProvaTitulo TEXT NOT NULL,
-    $colProvaDescricao TEXT,
-    $colProvaDataCriacao TEXT,
-    $colProvaDataProva TEXT,
-    $colProvaNota REAL,
-    $colProvaRealizada INTEGER DEFAULT 0,
-    $colProvaIdMateria INTEGER NOT NULL,
-    $colIdUsuario TEXT,
-    FOREIGN KEY($colProvaIdMateria)
-      REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
-  )
-''');
+        CREATE TABLE $tableDocumento(
+          $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colDocumentoTitulo TEXT NOT NULL,
+          $colDocumentoTipo TEXT,
+          $colDocumentoCaminho TEXT NOT NULL,
+          $colDocumentoNomeArquivo TEXT NOT NULL,
+          $colDocumentoDescricao TEXT,
+          $colDocumentoResumo TEXT,
+          $colDocumentoTopicos TEXT,
+          $colDocumentoSugeridos TEXT,
+          $colDocumentoQuestoes TEXT,
+          $colDocumentoRespostas TEXT,
+          $colDocumentoStatus TEXT DEFAULT 'pendente',
+          $colDocumentoErro TEXT,
+          $colDocumentoDataCriacao TEXT NOT NULL,
+          $colIdUsuario TEXT
+        )
+      ''');
 
-      // Criar índices para melhorar performance
-      await db.execute(
-        'CREATE INDEX idx_materia_usuario ON $tableMateria($colIdUsuario)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_tarefa_usuario ON $tableTarefa($colIdUsuario)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_prova_usuario ON $tableProva($colIdUsuario)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_documento_usuario ON $tableDocumento($colIdUsuario)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_tarefa_materia ON $tableTarefa($colTarefaIdMateria)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_materia_status ON $tableMateria($colMateriaStatus)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_tarefa_concluida ON $tableTarefa($colTarefaConcluida)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_prova_materia ON $tableProva($colProvaIdMateria)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_documento_status ON $tableDocumento($colDocumentoStatus)',
-      );
-      await db.execute(
-        'CREATE INDEX idx_documento_data_criacao ON $tableDocumento($colDocumentoDataCriacao)',
-      );
+      await db.execute('''
+        CREATE TABLE $tableProva(
+          $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colProvaTitulo TEXT NOT NULL,
+          $colProvaDescricao TEXT,
+          $colProvaDataCriacao TEXT,
+          $colProvaDataProva TEXT,
+          $colProvaNota REAL,
+          $colProvaRealizada INTEGER DEFAULT 0,
+          $colProvaIdMateria INTEGER NOT NULL,
+          $colProvaIdDocumento INTEGER,
+          $colIdUsuario TEXT,
+          FOREIGN KEY($colProvaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE $tableNota(
+          $colNotaId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colNotaIdMateria INTEGER NOT NULL,
+          $colNotaDescricao TEXT NOT NULL,
+          $colNotaValor REAL NOT NULL,
+          $colNotaPeso REAL DEFAULT 1.0,
+          $colNotaTipo TEXT DEFAULT 'prova',
+          $colNotaData TEXT,
+          $colIdUsuario TEXT,
+          FOREIGN KEY($colNotaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+        )
+      ''');
+
+      await _createAllIndexes(db);
     } catch (e) {
       throw Exception('Erro ao criar tabelas: $e');
     }
   }
 
-  Future<void> _ensureTarefaTableSchema(Database db) async {
-    try {
-      final columns = await db.rawQuery('PRAGMA table_info($tableTarefa)');
-      final existingColumns = columns
-          .map((row) => row['name']?.toString())
-          .whereType<String>()
-          .toSet();
+  Future<void> _createAllIndexes(Database db) async {
+    final indexes = {
+      'idx_materia_usuario': '$tableMateria($colIdUsuario)',
+      'idx_tarefa_usuario': '$tableTarefa($colIdUsuario)',
+      'idx_tarefa_materia': '$tableTarefa($colTarefaIdMateria)',
+      'idx_tarefa_concluida': '$tableTarefa($colTarefaConcluida)',
+      'idx_prova_usuario': '$tableProva($colIdUsuario)',
+      'idx_prova_materia': '$tableProva($colProvaIdMateria)',
+      'idx_documento_usuario': '$tableDocumento($colIdUsuario)',
+      'idx_documento_status': '$tableDocumento($colDocumentoStatus)',
+      'idx_documento_data': '$tableDocumento($colDocumentoDataCriacao)',
+      'idx_materia_status': '$tableMateria($colMateriaStatus)',
+      'idx_nota_materia': '$tableNota($colNotaIdMateria)',
+      'idx_nota_usuario': '$tableNota($colIdUsuario)',
+    };
 
-      final missingColumns = <String, String>{};
-      if (!existingColumns.contains(colTarefaIdDocumento)) {
-        missingColumns[colTarefaIdDocumento] = 'INTEGER';
-      }
-      if (!existingColumns.contains(colTarefaDataCriacao)) {
-        missingColumns[colTarefaDataCriacao] = 'TEXT';
-      }
-      if (!existingColumns.contains(colTarefaDataEntrega)) {
-        missingColumns[colTarefaDataEntrega] = 'TEXT';
-      }
-      if (!existingColumns.contains(colTarefaDataConclusao)) {
-        missingColumns[colTarefaDataConclusao] = 'TEXT';
-      }
-      if (!existingColumns.contains(colTarefaPrioridade)) {
-        missingColumns[colTarefaPrioridade] = "TEXT DEFAULT 'media'";
-      }
-      if (!existingColumns.contains(colIdUsuario)) {
-        missingColumns[colIdUsuario] = 'TEXT';
-      }
-
-      for (final entry in missingColumns.entries) {
-        await db.execute(
-          'ALTER TABLE $tableTarefa ADD COLUMN ${entry.key} ${entry.value}',
-        );
-      }
-    } catch (e) {
-      throw Exception('Erro ao assegurar schema da tabela tarefa: $e');
+    for (final entry in indexes.entries) {
+      await _tryExecute(db,
+          'CREATE INDEX IF NOT EXISTS ${entry.key} ON ${entry.value}');
     }
   }
 
-  /// Atualiza o schema do banco de dados para versões posteriores
-  ///
-  /// Implementa migrations quando a versão do banco mudar
-  /// Lança exceção se houver erro na atualização
-  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+  /// Garante que TODAS as colunas existam — protege bancos de dados antigos
+  Future<void> _ensureAllColumnsExist(Database db) async {
+    // Tarefa
+    await _addColIfMissing(db, tableTarefa, colTarefaIdDocumento, 'INTEGER');
+    await _addColIfMissing(db, tableTarefa, colTarefaDataCriacao, 'TEXT');
+    await _addColIfMissing(db, tableTarefa, colTarefaDataEntrega, 'TEXT');
+    await _addColIfMissing(db, tableTarefa, colTarefaDataConclusao, 'TEXT');
+    await _addColIfMissing(db, tableTarefa, colTarefaPrioridade, "TEXT DEFAULT 'media'");
+    await _addColIfMissing(db, tableTarefa, colIdUsuario, 'TEXT');
+
+    // Materia
+    await _addColIfMissing(db, tableMateria, colIdUsuario, 'TEXT');
+
+    // Prova
+    await _addColIfMissing(db, tableProva, colProvaIdDocumento, 'INTEGER');
+    await _addColIfMissing(db, tableProva, colIdUsuario, 'TEXT');
+    await _addColIfMissing(db, tableProva, colProvaDataCriacao, 'TEXT');
+    await _addColIfMissing(db, tableProva, colProvaDataProva, 'TEXT');
+    await _addColIfMissing(db, tableProva, colProvaNota, 'REAL');
+
+    // Documento
+    await _addColIfMissing(db, tableDocumento, colIdUsuario, 'TEXT');
+
+    // Cria tabela nota se não existir (bancos antigos)
+    await _tryExecute(db, '''
+      CREATE TABLE IF NOT EXISTS $tableNota(
+        $colNotaId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $colNotaIdMateria INTEGER NOT NULL,
+        $colNotaDescricao TEXT NOT NULL,
+        $colNotaValor REAL NOT NULL,
+        $colNotaPeso REAL DEFAULT 1.0,
+        $colNotaTipo TEXT DEFAULT 'prova',
+        $colNotaData TEXT,
+        $colIdUsuario TEXT,
+        FOREIGN KEY($colNotaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+      )
+    ''');
+
+    await _tryExecute(db,
+        'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)');
+    await _tryExecute(db,
+        'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)');
+  }
+
+  Future<void> _addColIfMissing(
+      Database db, String table, String col, String type) async {
     try {
-      if (oldVersion < newVersion) {
-        if (oldVersion < 2) {
-          await db.execute('''
-            CREATE TABLE $tableDocumento(
-              $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
-              $colDocumentoTitulo TEXT NOT NULL,
-              $colDocumentoTipo TEXT,
-              $colDocumentoCaminho TEXT NOT NULL,
-              $colDocumentoNomeArquivo TEXT NOT NULL,
-              $colDocumentoDescricao TEXT,
-              $colDocumentoResumo TEXT,
-              $colDocumentoTopicos TEXT,
-              $colDocumentoSugeridos TEXT,
-              $colDocumentoQuestoes TEXT,
-              $colDocumentoRespostas TEXT,
-              $colDocumentoStatus TEXT DEFAULT 'pendente',
-              $colDocumentoErro TEXT,
-              $colDocumentoDataCriacao TEXT NOT NULL
-            )
-          ''');
-
-          await db.execute(
-            'CREATE INDEX idx_documento_status ON $tableDocumento($colDocumentoStatus)',
-          );
-          await db.execute(
-            'CREATE INDEX idx_documento_data_criacao ON $tableDocumento($colDocumentoDataCriacao)',
-          );
-        }
-        if (oldVersion < 3) {
-          await db.execute(
-            'ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataCriacao TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataEntrega TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE $tableTarefa ADD COLUMN $colTarefaDataConclusao TEXT',
-          );
-        }
-        if (oldVersion < 4) {
-          await db.execute('''
-            CREATE TABLE $tableProva(
-              $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
-              $colProvaTitulo TEXT NOT NULL,
-              $colProvaDescricao TEXT,
-              $colProvaDataCriacao TEXT,
-              $colProvaDataProva TEXT,
-              $colProvaNota REAL,
-              $colProvaRealizada INTEGER DEFAULT 0,
-              $colProvaIdMateria INTEGER NOT NULL,
-              FOREIGN KEY($colProvaIdMateria)
-                REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
-            )
-          ''');
-          await db.execute(
-            'CREATE INDEX idx_prova_materia ON $tableProva($colProvaIdMateria)',
-          );
-        }
-        if (oldVersion < 5) {
-          await db.execute(
-            'ALTER TABLE $tableTarefa ADD COLUMN $colTarefaIdDocumento INTEGER',
-          );
-          await db.execute(
-            'ALTER TABLE $tableProva ADD COLUMN $colProvaIdDocumento INTEGER',
-          );
-        }
-        if (oldVersion < 6) {
-          await db.execute(
-            'ALTER TABLE $tableMateria ADD COLUMN $colIdUsuario TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE $tableTarefa ADD COLUMN $colIdUsuario TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE $tableProva ADD COLUMN $colIdUsuario TEXT',
-          );
-          await db.execute(
-            'ALTER TABLE $tableDocumento ADD COLUMN $colIdUsuario TEXT',
-          );
-
-          await db.execute(
-            'CREATE INDEX idx_materia_usuario ON $tableMateria($colIdUsuario)',
-          );
-          await db.execute(
-            'CREATE INDEX idx_tarefa_usuario ON $tableTarefa($colIdUsuario)',
-          );
-          await db.execute(
-            'CREATE INDEX idx_prova_usuario ON $tableProva($colIdUsuario)',
-          );
-          await db.execute(
-            'CREATE INDEX idx_documento_usuario ON $tableDocumento($colIdUsuario)',
-          );
-        }
-        if (oldVersion < 7) {
-          await db.execute(
-            "ALTER TABLE $tableTarefa ADD COLUMN $colTarefaPrioridade TEXT DEFAULT 'media'",
-          );
-        }
+      final cols = await db.rawQuery('PRAGMA table_info($table)');
+      final exists = cols.any((c) => c['name']?.toString() == col);
+      if (!exists) {
+        await db.execute('ALTER TABLE $table ADD COLUMN $col $type');
       }
+    } catch (_) {}
+  }
+
+  Future<void> _tryExecute(Database db, String sql) async {
+    try {
+      await db.execute(sql);
+    } catch (_) {}
+  }
+
+  Future<void> _upgradeDB(
+      Database db, int oldVersion, int newVersion) async {
+    try {
+      if (oldVersion < 2) {
+        await _tryExecute(db, '''
+          CREATE TABLE IF NOT EXISTS $tableDocumento(
+            $colDocumentoId INTEGER PRIMARY KEY AUTOINCREMENT,
+            $colDocumentoTitulo TEXT NOT NULL,
+            $colDocumentoTipo TEXT,
+            $colDocumentoCaminho TEXT NOT NULL,
+            $colDocumentoNomeArquivo TEXT NOT NULL,
+            $colDocumentoDescricao TEXT,
+            $colDocumentoResumo TEXT,
+            $colDocumentoTopicos TEXT,
+            $colDocumentoSugeridos TEXT,
+            $colDocumentoQuestoes TEXT,
+            $colDocumentoRespostas TEXT,
+            $colDocumentoStatus TEXT DEFAULT 'pendente',
+            $colDocumentoErro TEXT,
+            $colDocumentoDataCriacao TEXT NOT NULL
+          )
+        ''');
+      }
+      if (oldVersion < 3) {
+        await _addColIfMissing(db, tableTarefa, colTarefaDataCriacao, 'TEXT');
+        await _addColIfMissing(db, tableTarefa, colTarefaDataEntrega, 'TEXT');
+        await _addColIfMissing(db, tableTarefa, colTarefaDataConclusao, 'TEXT');
+      }
+      if (oldVersion < 4) {
+        await _tryExecute(db, '''
+          CREATE TABLE IF NOT EXISTS $tableProva(
+            $colProvaId INTEGER PRIMARY KEY AUTOINCREMENT,
+            $colProvaTitulo TEXT NOT NULL,
+            $colProvaDescricao TEXT,
+            $colProvaDataCriacao TEXT,
+            $colProvaDataProva TEXT,
+            $colProvaNota REAL,
+            $colProvaRealizada INTEGER DEFAULT 0,
+            $colProvaIdMateria INTEGER NOT NULL,
+            FOREIGN KEY($colProvaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+          )
+        ''');
+      }
+      if (oldVersion < 5) {
+        await _addColIfMissing(db, tableTarefa, colTarefaIdDocumento, 'INTEGER');
+        await _addColIfMissing(db, tableProva, colProvaIdDocumento, 'INTEGER');
+      }
+      if (oldVersion < 6) {
+        await _addColIfMissing(db, tableMateria, colIdUsuario, 'TEXT');
+        await _addColIfMissing(db, tableTarefa, colIdUsuario, 'TEXT');
+        await _addColIfMissing(db, tableProva, colIdUsuario, 'TEXT');
+        await _addColIfMissing(db, tableDocumento, colIdUsuario, 'TEXT');
+      }
+      if (oldVersion < 7) {
+        await _addColIfMissing(db, tableTarefa, colTarefaPrioridade, "TEXT DEFAULT 'media'");
+      }
+      if (oldVersion < 8) {
+        await _addColIfMissing(db, tableProva, colProvaIdDocumento, 'INTEGER');
+        await _addColIfMissing(db, tableProva, colProvaDataCriacao, 'TEXT');
+        await _addColIfMissing(db, tableProva, colProvaNota, 'REAL');
+      }
+      if (oldVersion < 9) {
+        // Adiciona tabela de notas independentes
+        await _tryExecute(db, '''
+          CREATE TABLE IF NOT EXISTS $tableNota(
+            $colNotaId INTEGER PRIMARY KEY AUTOINCREMENT,
+            $colNotaIdMateria INTEGER NOT NULL,
+            $colNotaDescricao TEXT NOT NULL,
+            $colNotaValor REAL NOT NULL,
+            $colNotaPeso REAL DEFAULT 1.0,
+            $colNotaTipo TEXT DEFAULT 'prova',
+            $colNotaData TEXT,
+            $colIdUsuario TEXT,
+            FOREIGN KEY($colNotaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
+          )
+        ''');
+        await _tryExecute(db,
+            'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)');
+        await _tryExecute(db,
+            'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)');
+      }
+
+      // Sempre garante os índices
+      await _createAllIndexes(db);
     } catch (e) {
-      throw Exception('Erro ao fazer upgrade do banco de dados: $e');
+      throw Exception('Erro no upgrade do banco: $e');
     }
   }
 
-  /// Verifica se o banco de dados está pronto para uso
-  ///
-  /// Retorna true se a conexão está ativa
-  bool get isOpen {
-    return _database != null && _database!.isOpen;
-  }
+  bool get isOpen => _database != null && _database!.isOpen;
 
-  /// Retorna o caminho do arquivo do banco de dados
-  ///
-  /// Útil para debug e backup
   Future<String> getDbPath() async {
-    try {
-      final dbPath = await getDatabasesPath();
-      return join(dbPath, _dbName);
-    } catch (e) {
-      throw Exception('Erro ao obter caminho do banco: $e');
-    }
+    final dbPath = await getDatabasesPath();
+    return join(dbPath, _dbName);
   }
 
-  /// Fecha a conexão com o banco de dados
-  ///
-  /// Deve ser chamado quando a aplicação está siendo encerrada
-  /// Libera recursos do banco
   Future<void> close() async {
-    try {
-      if (_database != null) {
-        await _database!.close();
-        _database = null;
-      }
-    } catch (e) {
-      throw Exception('Erro ao fechar banco de dados: $e');
-    }
-  }
-
-  /// Executa uma transação com múltiplas operações
-  ///
-  /// Garante atomicidade: todas as operações são executadas ou nenhuma é
-  /// Útil para operações que dependem uma da outra
-  Future<T> transaction<T>(Future<T> Function(Transaction txn) action) async {
-    try {
-      final db = await database;
-      return await db.transaction(action);
-    } catch (e) {
-      throw Exception('Erro ao executar transação: $e');
-    }
-  }
-
-  /// Retorna o número total de tarefas no banco
-  ///
-  /// Útil para estatísticas
-  Future<int> getTotalTarefas() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        'SELECT COUNT(*) as total FROM $tableTarefa',
-      );
-      return (result.first['total'] as int?) ?? 0;
-    } catch (e) {
-      throw Exception('Erro ao contar tarefas: $e');
-    }
-  }
-
-  /// Retorna o número total de matérias no banco
-  ///
-  /// Útil para estatísticas
-  Future<int> getTotalMaterias() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        'SELECT COUNT(*) as total FROM $tableMateria',
-      );
-      return (result.first['total'] as int?) ?? 0;
-    } catch (e) {
-      throw Exception('Erro ao contar matérias: $e');
-    }
-  }
-
-  /// Reseta o banco de dados (usa com cuidado!)
-  ///
-  /// Remove todas as tabelas e as recria
-  /// Útil apenas para testes ou reset completo da aplicação
-  Future<void> resetDatabase() async {
-    try {
-      await close();
-      final dbPath = await getDbPath();
-      await deleteDatabase(dbPath);
+    if (_database != null) {
+      await _database!.close();
       _database = null;
-    } catch (e) {
-      throw Exception('Erro ao resetar banco de dados: $e');
     }
+  }
+
+  Future<T> transaction<T>(Future<T> Function(Transaction txn) action) async {
+    final db = await database;
+    return db.transaction(action);
+  }
+
+  Future<int> getTotalTarefas() async {
+    final db = await database;
+    final r = await db.rawQuery('SELECT COUNT(*) as total FROM $tableTarefa');
+    return (r.first['total'] as int?) ?? 0;
+  }
+
+  Future<int> getTotalMaterias() async {
+    final db = await database;
+    final r = await db.rawQuery('SELECT COUNT(*) as total FROM $tableMateria');
+    return (r.first['total'] as int?) ?? 0;
+  }
+
+  Future<void> resetDatabase() async {
+    await close();
+    final path = await getDbPath();
+    await deleteDatabase(path);
+    _database = null;
   }
 }
