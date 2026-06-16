@@ -6,6 +6,7 @@ class Prova {
   DateTime? dataCriacao;
   DateTime? dataProva;
   double? nota;
+  double peso;
   bool realizada;
   final int idMateria;
   int? documentoId;
@@ -18,6 +19,7 @@ class Prova {
     this.dataCriacao,
     this.dataProva,
     this.nota,
+    this.peso = 1.0,
     required this.realizada,
     required this.idMateria,
     this.documentoId,
@@ -32,6 +34,7 @@ class Prova {
       'data_criacao': dataCriacao?.toIso8601String(),
       'data_prova': dataProva?.toIso8601String(),
       'nota': nota,
+      'peso': peso,
       'realizada': realizada ? 1 : 0,
       'id_materia': idMateria,
       'id_documento': documentoId,
@@ -46,7 +49,8 @@ class Prova {
       descricao: (map['descricao'] ?? '').toString().trim(),
       dataCriacao: map['data_criacao'] != null ? DateTime.parse(map['data_criacao'] as String) : null,
       dataProva: map['data_prova'] != null ? DateTime.parse(map['data_prova'] as String) : null,
-      nota: map['nota'] as double?,
+      nota: (map['nota'] as num?)?.toDouble(),
+      peso: ((map['peso'] ?? 1.0) as num).toDouble(),
       realizada: (map['realizada'] as int? ?? 0) == 1,
       idMateria: map['id_materia'] as int,
       documentoId: map['id_documento'] as int?,
@@ -56,5 +60,5 @@ class Prova {
 
   @override
   String toString() =>
-      'Prova(id: $id, titulo: $titulo, realizada: $realizada, dataProva: $dataProva)';
+      'Prova(id: $id, titulo: $titulo, realizada: $realizada, dataProva: $dataProva, peso: $peso)';
 }

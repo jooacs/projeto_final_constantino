@@ -21,6 +21,7 @@ class ProvaService {
         'realizada': prova.realizada ? 1 : 0,
         'id_materia': prova.idMateria,
         'id_usuario': uid,
+        'peso': prova.peso,
       };
 
       // Adiciona campos opcionais apenas se não nulos
@@ -79,6 +80,24 @@ class ProvaService {
     }
   }
 
+  Future<Prova?> buscarPorId(int id) async {
+    try {
+      final uid = AuthService.currentUserId;
+      if (uid == null) return null;
+
+      final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+        'prova',
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
+      if (result.isEmpty) return null;
+      return Prova.fromMap(result.first);
+    } catch (e) {
+      throw Exception('Erro ao buscar prova: $e');
+    }
+  }
+
   Future<int> atualizarProva(Prova prova) async {
     try {
       final uid = AuthService.currentUserId;
@@ -92,6 +111,7 @@ class ProvaService {
         'realizada': prova.realizada ? 1 : 0,
         'id_materia': prova.idMateria,
         'id_usuario': uid,
+        'peso': prova.peso,
       };
 
       if (prova.dataCriacao != null) {

@@ -3,7 +3,6 @@
 /// Centraliza todas as constantes relacionadas ao banco de dados
 /// para evitar repetição e facilitar manutenção
 
-
 // ============= COLUNA COMUM (MULTI-USUÁRIO) =============
 const String colIdUsuario = 'id_usuario';
 
@@ -30,7 +29,8 @@ const String colTarefaDataCriacao = 'data_criacao';
 const String colTarefaDataEntrega = 'data_entrega';
 const String colTarefaDataConclusao = 'data_conclusao';
 const String colTarefaIdDocumento = 'id_documento';
-const String colTarefaPrioridade = 'prioridade'; // NOVO
+const String colTarefaIdProva = 'id_prova';
+const String colTarefaPrioridade = 'prioridade';
 
 // ============= NÍVEIS DE PRIORIDADE =============
 const String prioridadeBaixa = 'baixa';
@@ -45,6 +45,7 @@ const String colProvaDescricao = 'descricao';
 const String colProvaDataCriacao = 'data_criacao';
 const String colProvaDataProva = 'data_prova';
 const String colProvaNota = 'nota';
+const String colProvaPeso = 'peso';
 const String colProvaRealizada = 'realizada';
 const String colProvaIdMateria = 'id_materia';
 const String colProvaIdDocumento = 'id_documento';
@@ -65,6 +66,18 @@ const String colDocumentoRespostas = 'respostas';
 const String colDocumentoStatus = 'status';
 const String colDocumentoErro = 'erro';
 const String colDocumentoDataCriacao = 'data_criacao';
+const String colDocumentoIdProva = 'id_prova';
+
+// ============= TABELA NOTA =============
+const String tableNota = 'nota';
+const String colNotaId = 'id';
+const String colNotaIdMateria = 'id_materia';
+const String colNotaDescricao = 'descricao';
+const String colNotaValor = 'valor';
+const String colNotaPeso = 'peso';
+const String colNotaTipo = 'tipo';
+const String colNotaData = 'data';
+const String colNotaIdProva = 'id_prova';
 
 // ============= VALORES PADRÃO =============
 const String statusMateriaAtiva = 'ativa';
@@ -76,7 +89,7 @@ const int tarefaPendente = 0;
 
 // ============= CONFIGURAÇÕES DO BANCO =============
 const String dbName = 'studyflow.db';
-const int dbVersion = 7;
+const int dbVersion = 11;
 const int dbTimeoutMs = 30000;
 
 // ============= QUERIES ÚTEIS =============

@@ -33,17 +33,18 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   final DocumentoService documentoService = DocumentoService();
 
   // Controladores para Tarefa
-  // Controladores para Tarefa
   final tituloTarefaController = TextEditingController();
   final descricaoTarefaController = TextEditingController();
   DateTime? _dataCriacaoTarefa;
   DateTime? _dataEntregaTarefa;
-  String _prioridadeTarefa = prioridadeMedia; // NOVO
+  String _prioridadeTarefa = prioridadeMedia;
+  Prova? _provaVinculadaTarefa; // NOVO: vincula a tarefa criada a uma prova
 
   // Controladores para Prova
   final tituloProvaController = TextEditingController();
   final descricaoProvaController = TextEditingController();
   final notaProvaController = TextEditingController();
+  final pesoProvaController = TextEditingController(text: '1.0'); // NOVO
   DateTime? _dataCriacaoProva;
   DateTime? _dataProva;
 
@@ -57,7 +58,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      setState(() {}); // Atualizar o ícone/ação do FAB quando mudar de aba
+      setState(() {});
     });
     carregarTarefas();
     carregarProvas();
@@ -82,6 +83,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         final savedFile = File(path.join(appDir.path, fileName));
         await savedFile.writeAsBytes(result.files.single.bytes!);
 
+        // Se o item for uma Prova, vincula o resumo a ela (id_prova)
+        final int? idProvaVinculada = item is Prova ? item.id : null;
+
         final novoDoc = Documento(
           titulo: 'Resumo: ${item.titulo}',
           tipo: 'resumo',
@@ -89,6 +93,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
           nomeArquivo: result.files.single.name,
           resumo: summary,
           dataCriacao: DateTime.now().toIso8601String(),
+          idProva: idProvaVinculada,
         );
 
         final docId = await documentoService.insertDocumento(novoDoc);
@@ -151,6 +156,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     tituloProvaController.dispose();
     descricaoProvaController.dispose();
     notaProvaController.dispose();
+    pesoProvaController.dispose();
     super.dispose();
   }
 
@@ -206,6 +212,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         dataCriacao: _dataCriacaoTarefa ?? DateTime.now(),
         dataEntrega: _dataEntregaTarefa,
         prioridade: _prioridadeTarefa,
+        idProva: _provaVinculadaTarefa?.id,
       );
       await tarefaService.inserirTarefa(tarefa);
       if (!mounted) return;
@@ -214,6 +221,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _dataCriacaoTarefa = null;
       _dataEntregaTarefa = null;
       _prioridadeTarefa = prioridadeMedia;
+      _provaVinculadaTarefa = null;
       await carregarTarefas();
       Navigator.pop(context);
       _mostrarSucesso('Tarefa adicionada com sucesso!');
@@ -263,6 +271,13 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _mostrarErro('Preencha o título da prova');
       return;
     }
+    final peso = double.tryParse(
+            pesoProvaController.text.trim().replaceAll(',', '.')) ??
+        1.0;
+    if (peso <= 0) {
+      _mostrarErro('O peso deve ser maior que zero');
+      return;
+    }
     try {
       final prova = Prova(
         titulo: tituloProvaController.text.trim(),
@@ -272,12 +287,14 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         dataCriacao: _dataCriacaoProva ?? DateTime.now(),
         dataProva: _dataProva,
         nota: double.tryParse(notaProvaController.text),
+        peso: peso,
       );
       await provaService.inserirProva(prova);
       if (!mounted) return;
       tituloProvaController.clear();
       descricaoProvaController.clear();
       notaProvaController.clear();
+      pesoProvaController.text = '1.0';
       _dataCriacaoProva = null;
       _dataProva = null;
       await carregarProvas();
@@ -288,21 +305,104 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     }
   }
 
+  /// Marca a prova como realizada/pendente.
+  /// Ao marcar como realizada, pede a nota obtida e a registra também
+  /// na tabela de Notas para entrar nos cálculos de desempenho.
   Future<void> atualizarStatusProva(int index, bool? newValue) async {
     if (newValue == null) return;
-    try {
-      provas[index].realizada = newValue;
-      await provaService.atualizarProva(provas[index]);
-      if (!mounted) return;
-      await carregarProvas();
-      _mostrarSucesso(newValue ? 'Prova realizada!' : 'Prova pendente!');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        provas[index].realizada = !newValue;
-      });
-      _mostrarErro('Erro ao atualizar prova: $e');
+    final prova = provas[index];
+
+    if (newValue == true && !prova.realizada) {
+      final nota = await _pedirNotaProva(prova);
+      if (nota == null) return; // cancelado: não marca como realizada
+
+      try {
+        prova.realizada = true;
+        prova.nota = nota;
+        await provaService.atualizarProva(prova);
+        if (!mounted) return;
+        await carregarProvas();
+        _mostrarSucesso('✅ Prova concluída! Nota $nota registrada em Notas.');
+      } catch (e) {
+        if (!mounted) return;
+        _mostrarErro('Erro ao atualizar prova: $e');
+      }
+    } else {
+      try {
+        provas[index].realizada = newValue;
+        await provaService.atualizarProva(provas[index]);
+        if (!mounted) return;
+        await carregarProvas();
+        _mostrarSucesso(newValue ? 'Prova realizada!' : 'Prova pendente!');
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          provas[index].realizada = !newValue;
+        });
+        _mostrarErro('Erro ao atualizar prova: $e');
+      }
     }
+  }
+
+  Future<double?> _pedirNotaProva(Prova prova) async {
+    final ctrl = TextEditingController();
+    return showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Qual foi a sua nota?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(prova.titulo,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('Peso: ${prova.peso.toStringAsFixed(1)}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              decoration: InputDecoration(
+                hintText: '0.0 — 10.0',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            onPressed: () {
+              final valor = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+              if (valor == null || valor < 0 || valor > 10) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Informe uma nota entre 0 e 10.')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, valor);
+            },
+            child: const Text('Salvar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> deletarProva(int index) async {
@@ -378,9 +478,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     );
     final diff = entregaSemHora.difference(hojeSemHora).inDays;
 
-    if (diff < 0) return const Color(0xFFEF4444); // atrasada
-    if (diff <= 1) return const Color(0xFFF59E0B); // hoje/amanhã
-    return const Color(0xFF10B981); // tranquilo
+    if (diff < 0) return const Color(0xFFEF4444);
+    if (diff <= 1) return const Color(0xFFF59E0B);
+    return const Color(0xFF10B981);
   }
 
   Color _corPrioridade(String prioridade) {
@@ -452,6 +552,8 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     descricaoTarefaController.clear();
     _dataCriacaoTarefa = DateTime.now();
     _dataEntregaTarefa = null;
+    _provaVinculadaTarefa = null;
+    _prioridadeTarefa = prioridadeMedia;
 
     showDialog(
       context: context,
@@ -463,10 +565,29 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(controller: tituloTarefaController, decoration: const InputDecoration(labelText: 'Título')),
                     const SizedBox(height: 10),
                     TextField(controller: descricaoTarefaController, maxLines: 3, decoration: const InputDecoration(labelText: 'Descrição')),
+                    const SizedBox(height: 16),
+                    const Text('Prioridade',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: _prioridadeTarefa,
+                      items: const [
+                        DropdownMenuItem(value: prioridadeBaixa, child: Text('🟢  Baixa')),
+                        DropdownMenuItem(value: prioridadeMedia, child: Text('🟡  Média')),
+                        DropdownMenuItem(value: prioridadeAlta,  child: Text('🔴  Alta')),
+                      ],
+                      onChanged: (v) => setDialogState(() => _prioridadeTarefa = v ?? prioridadeMedia),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        isDense: true,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -488,6 +609,31 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                         if (picked != null) setDialogState(() => _dataEntregaTarefa = picked);
                       },
                     ),
+                    const SizedBox(height: 10),
+                    if (provas.isNotEmpty) ...[
+                      const Text('Vincular a uma prova (opcional)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<Prova?>(
+                        value: _provaVinculadaTarefa,
+                        items: [
+                          const DropdownMenuItem<Prova?>(
+                            value: null,
+                            child: Text('Nenhuma'),
+                          ),
+                          ...provas.map((p) => DropdownMenuItem<Prova?>(
+                                value: p,
+                                child: Text(p.titulo, overflow: TextOverflow.ellipsis),
+                              )),
+                        ],
+                        onChanged: (v) => setDialogState(() => _provaVinculadaTarefa = v),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -506,6 +652,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     tituloProvaController.clear();
     descricaoProvaController.clear();
     notaProvaController.clear();
+    pesoProvaController.text = '1.0';
     _dataCriacaoProva = DateTime.now();
     _dataProva = null;
 
@@ -536,9 +683,13 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     ),
                     const SizedBox(height: 10),
                     TextField(
-                      controller: notaProvaController, 
-                      keyboardType: TextInputType.number, 
-                      decoration: const InputDecoration(labelText: 'Nota (Opcional)')
+                      controller: pesoProvaController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Peso da avaliação',
+                        hintText: 'Ex: 1.0, 2.0...',
+                        helperText: 'Usado no cálculo da média ponderada',
+                      ),
                     ),
                   ],
                 ),
@@ -595,9 +746,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Aba Tarefas
                 _buildListaTarefas(),
-                // Aba Provas
                 _buildListaProvas(),
               ],
             ),
@@ -629,6 +778,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       itemCount: tarefas.length,
       itemBuilder: (context, index) {
         final tarefa = tarefas[index];
+        final provaVinculada = tarefa.idProva != null
+            ? provas.where((p) => p.id == tarefa.idProva).firstOrNull
+            : null;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -704,6 +856,11 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                           'Concluída em: ${_formatDate(tarefa.dataConclusao!)}',
                           const Color(0xFF94A3B8),
                         ),
+                      if (provaVinculada != null)
+                        _buildChip(
+                          '📝 ${provaVinculada.titulo}',
+                          const Color(0xFFEF4444),
+                        ),
                     ],
                   ),
                 ),
@@ -738,6 +895,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
               children: [
                 if (prova.descricao.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: Text(prova.descricao)),
                 if (datasTexto.isNotEmpty) Text(datasTexto, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4)),
+                Text('Peso: ${prova.peso.toStringAsFixed(1)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                 if (prova.nota != null) Text('Nota: ${prova.nota}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
               ],
             ),

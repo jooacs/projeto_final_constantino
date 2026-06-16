@@ -29,6 +29,21 @@ class DocumentoService {
     return List.generate(maps.length, (i) => Documento.fromMap(maps[i]));
   }
 
+  /// Busca todos os documentos (resumos/quizzes) vinculados a uma prova específica
+  Future<List<Documento>> buscarPorProva(int idProva) async {
+    final uid = AuthService.currentUserId;
+    if (uid == null) return [];
+
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableDocumento,
+      where: 'id_prova = ? AND $colIdUsuario = ?',
+      whereArgs: [idProva, uid],
+      orderBy: '$colDocumentoDataCriacao DESC',
+    );
+    return List.generate(maps.length, (i) => Documento.fromMap(maps[i]));
+  }
+
   Future<int> deleteDocumento(int id) async {
     final uid = AuthService.currentUserId;
     if (uid == null) throw Exception('Usuário não autenticado');
