@@ -7,6 +7,7 @@ class Nota {
   double peso; // peso da avaliação (padrão 1.0)
   String tipo; // 'prova', 'trabalho', 'participacao', 'outro'
   DateTime? data;
+  int? idProva;
   String? idUsuario;
 
   Nota({
@@ -17,6 +18,7 @@ class Nota {
     this.peso = 1.0,
     this.tipo = 'prova',
     this.data,
+    this.idProva,
     this.idUsuario,
   })  : assert(valor >= 0 && valor <= 10, 'Nota deve estar entre 0 e 10'),
         assert(peso > 0, 'Peso deve ser maior que zero');
@@ -30,6 +32,7 @@ class Nota {
       'peso': peso,
       'tipo': tipo,
       'data': data?.toIso8601String(),
+      'id_prova': idProva,
       'id_usuario': idUsuario,
     };
   }
@@ -43,6 +46,7 @@ class Nota {
       peso: ((map['peso'] ?? 1.0) as num).toDouble(),
       tipo: (map['tipo'] ?? 'prova').toString(),
       data: map['data'] != null ? DateTime.tryParse(map['data'] as String) : null,
+      idProva: map['id_prova'] as int?,
       idUsuario: map['id_usuario'] as String?,
     );
   }

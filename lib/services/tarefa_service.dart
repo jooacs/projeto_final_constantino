@@ -51,6 +51,27 @@ class TarefaService {
     }
   }
 
+  /// Busca todas as tarefas vinculadas a uma prova específica
+  ///
+  /// Retorna uma lista de Tarefa ou lista vazia se nenhuma for encontrada
+  Future<List<Tarefa>> buscarPorProva(int idProva) async {
+    try {
+      final uid = AuthService.currentUserId;
+      if (uid == null) return [];
+
+      final db = await DatabaseHelper.instance.database;
+      final result = await db.query(
+        'tarefa',
+        where: 'id_prova = ? AND id_usuario = ?',
+        whereArgs: [idProva, uid],
+        orderBy: 'concluida ASC, titulo ASC',
+      );
+      return result.map((e) => Tarefa.fromMap(e)).toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar tarefas da prova: $e');
+    }
+  }
+
   /// Busca uma tarefa específica pelo ID
   ///
   /// Retorna null se nenhuma tarefa for encontrada

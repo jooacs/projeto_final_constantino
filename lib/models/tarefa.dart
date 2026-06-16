@@ -9,6 +9,7 @@ class Tarefa {
   DateTime? dataEntrega;
   DateTime? dataConclusao;
   int? documentoId;
+  int? idProva; // NOVO: vincula a tarefa a uma prova específica
   String? idUsuario;
   String prioridade;
 
@@ -22,6 +23,7 @@ class Tarefa {
     this.dataEntrega,
     this.dataConclusao,
     this.documentoId,
+    this.idProva,
     this.idUsuario,
     this.prioridade = 'media',
   }) : assert(titulo.isNotEmpty, 'O título da tarefa não pode estar vazio');
@@ -38,6 +40,7 @@ class Tarefa {
       'data_entrega': dataEntrega?.toIso8601String(),
       'data_conclusao': dataConclusao?.toIso8601String(),
       'id_documento': documentoId,
+      'id_prova': idProva,
       'id_usuario': idUsuario,
       'prioridade': prioridade,
     };
@@ -55,6 +58,7 @@ class Tarefa {
       dataEntrega: map['data_entrega'] != null ? DateTime.parse(map['data_entrega'] as String) : null,
       dataConclusao: map['data_conclusao'] != null ? DateTime.parse(map['data_conclusao'] as String) : null,
       documentoId: map['id_documento'] as int?,
+      idProva: map['id_prova'] as int?,
       idUsuario: map['id_usuario'] as String?,
       prioridade: (map['prioridade'] ?? 'media').toString(),
     );

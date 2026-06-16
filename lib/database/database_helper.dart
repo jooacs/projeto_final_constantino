@@ -6,7 +6,7 @@ class DatabaseHelper {
   static Database? _database;
 
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 9; // v9: adiciona tabela nota
+  static const int _dbVersion = 11; // v11: vincula notas geradas por provas
 
   // Tabelas
   static const String tableMateria = 'materia';
@@ -37,6 +37,7 @@ class DatabaseHelper {
   static const String colTarefaDataEntrega = 'data_entrega';
   static const String colTarefaDataConclusao = 'data_conclusao';
   static const String colTarefaIdDocumento = 'id_documento';
+  static const String colTarefaIdProva = 'id_prova';
   static const String colTarefaPrioridade = 'prioridade';
 
   // Prova
@@ -46,6 +47,7 @@ class DatabaseHelper {
   static const String colProvaDataCriacao = 'data_criacao';
   static const String colProvaDataProva = 'data_prova';
   static const String colProvaNota = 'nota';
+  static const String colProvaPeso = 'peso';
   static const String colProvaRealizada = 'realizada';
   static const String colProvaIdMateria = 'id_materia';
   static const String colProvaIdDocumento = 'id_documento';
@@ -65,6 +67,7 @@ class DatabaseHelper {
   static const String colDocumentoStatus = 'status';
   static const String colDocumentoErro = 'erro';
   static const String colDocumentoDataCriacao = 'data_criacao';
+  static const String colDocumentoIdProva = 'id_prova';
 
   // Nota (NOVA)
   static const String colNotaId = 'id';
@@ -74,6 +77,7 @@ class DatabaseHelper {
   static const String colNotaPeso = 'peso';
   static const String colNotaTipo = 'tipo';
   static const String colNotaData = 'data';
+  static const String colNotaIdProva = 'id_prova';
 
   DatabaseHelper._init();
 
@@ -132,6 +136,7 @@ class DatabaseHelper {
           $colTarefaConcluida INTEGER DEFAULT 0,
           $colTarefaIdMateria INTEGER NOT NULL,
           $colTarefaIdDocumento INTEGER,
+          $colTarefaIdProva INTEGER,
           $colTarefaDataCriacao TEXT,
           $colTarefaDataEntrega TEXT,
           $colTarefaDataConclusao TEXT,
@@ -157,6 +162,7 @@ class DatabaseHelper {
           $colDocumentoStatus TEXT DEFAULT 'pendente',
           $colDocumentoErro TEXT,
           $colDocumentoDataCriacao TEXT NOT NULL,
+          $colDocumentoIdProva INTEGER,
           $colIdUsuario TEXT
         )
       ''');
@@ -169,6 +175,7 @@ class DatabaseHelper {
           $colProvaDataCriacao TEXT,
           $colProvaDataProva TEXT,
           $colProvaNota REAL,
+          $colProvaPeso REAL DEFAULT 1.0,
           $colProvaRealizada INTEGER DEFAULT 0,
           $colProvaIdMateria INTEGER NOT NULL,
           $colProvaIdDocumento INTEGER,
@@ -186,6 +193,7 @@ class DatabaseHelper {
           $colNotaPeso REAL DEFAULT 1.0,
           $colNotaTipo TEXT DEFAULT 'prova',
           $colNotaData TEXT,
+          $colNotaIdProva INTEGER,
           $colIdUsuario TEXT,
           FOREIGN KEY($colNotaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
         )
@@ -202,20 +210,25 @@ class DatabaseHelper {
       'idx_materia_usuario': '$tableMateria($colIdUsuario)',
       'idx_tarefa_usuario': '$tableTarefa($colIdUsuario)',
       'idx_tarefa_materia': '$tableTarefa($colTarefaIdMateria)',
+      'idx_tarefa_prova': '$tableTarefa($colTarefaIdProva)',
       'idx_tarefa_concluida': '$tableTarefa($colTarefaConcluida)',
       'idx_prova_usuario': '$tableProva($colIdUsuario)',
       'idx_prova_materia': '$tableProva($colProvaIdMateria)',
+      'idx_documento_prova': '$tableDocumento($colDocumentoIdProva)',
       'idx_documento_usuario': '$tableDocumento($colIdUsuario)',
       'idx_documento_status': '$tableDocumento($colDocumentoStatus)',
       'idx_documento_data': '$tableDocumento($colDocumentoDataCriacao)',
       'idx_materia_status': '$tableMateria($colMateriaStatus)',
       'idx_nota_materia': '$tableNota($colNotaIdMateria)',
+      'idx_nota_prova': '$tableNota($colNotaIdProva)',
       'idx_nota_usuario': '$tableNota($colIdUsuario)',
     };
 
     for (final entry in indexes.entries) {
-      await _tryExecute(db,
-          'CREATE INDEX IF NOT EXISTS ${entry.key} ON ${entry.value}');
+      await _tryExecute(
+        db,
+        'CREATE INDEX IF NOT EXISTS ${entry.key} ON ${entry.value}',
+      );
     }
   }
 
@@ -223,10 +236,16 @@ class DatabaseHelper {
   Future<void> _ensureAllColumnsExist(Database db) async {
     // Tarefa
     await _addColIfMissing(db, tableTarefa, colTarefaIdDocumento, 'INTEGER');
+    await _addColIfMissing(db, tableTarefa, colTarefaIdProva, 'INTEGER');
     await _addColIfMissing(db, tableTarefa, colTarefaDataCriacao, 'TEXT');
     await _addColIfMissing(db, tableTarefa, colTarefaDataEntrega, 'TEXT');
     await _addColIfMissing(db, tableTarefa, colTarefaDataConclusao, 'TEXT');
-    await _addColIfMissing(db, tableTarefa, colTarefaPrioridade, "TEXT DEFAULT 'media'");
+    await _addColIfMissing(
+      db,
+      tableTarefa,
+      colTarefaPrioridade,
+      "TEXT DEFAULT 'media'",
+    );
     await _addColIfMissing(db, tableTarefa, colIdUsuario, 'TEXT');
 
     // Materia
@@ -238,9 +257,11 @@ class DatabaseHelper {
     await _addColIfMissing(db, tableProva, colProvaDataCriacao, 'TEXT');
     await _addColIfMissing(db, tableProva, colProvaDataProva, 'TEXT');
     await _addColIfMissing(db, tableProva, colProvaNota, 'REAL');
+    await _addColIfMissing(db, tableProva, colProvaPeso, 'REAL DEFAULT 1.0');
 
     // Documento
     await _addColIfMissing(db, tableDocumento, colIdUsuario, 'TEXT');
+    await _addColIfMissing(db, tableDocumento, colDocumentoIdProva, 'INTEGER');
 
     // Cria tabela nota se não existir (bancos antigos)
     await _tryExecute(db, '''
@@ -257,14 +278,27 @@ class DatabaseHelper {
       )
     ''');
 
-    await _tryExecute(db,
-        'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)');
-    await _tryExecute(db,
-        'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)');
+    await _tryExecute(
+      db,
+      'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)',
+    );
+    await _tryExecute(
+      db,
+      'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)',
+    );
+    await _addColIfMissing(db, tableNota, colNotaIdProva, 'INTEGER');
+    await _tryExecute(
+      db,
+      'CREATE INDEX IF NOT EXISTS idx_nota_prova ON $tableNota($colNotaIdProva)',
+    );
   }
 
   Future<void> _addColIfMissing(
-      Database db, String table, String col, String type) async {
+    Database db,
+    String table,
+    String col,
+    String type,
+  ) async {
     try {
       final cols = await db.rawQuery('PRAGMA table_info($table)');
       final exists = cols.any((c) => c['name']?.toString() == col);
@@ -280,8 +314,7 @@ class DatabaseHelper {
     } catch (_) {}
   }
 
-  Future<void> _upgradeDB(
-      Database db, int oldVersion, int newVersion) async {
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     try {
       if (oldVersion < 2) {
         await _tryExecute(db, '''
@@ -317,6 +350,7 @@ class DatabaseHelper {
             $colProvaDataCriacao TEXT,
             $colProvaDataProva TEXT,
             $colProvaNota REAL,
+            $colProvaPeso REAL DEFAULT 1.0,
             $colProvaRealizada INTEGER DEFAULT 0,
             $colProvaIdMateria INTEGER NOT NULL,
             FOREIGN KEY($colProvaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
@@ -324,7 +358,12 @@ class DatabaseHelper {
         ''');
       }
       if (oldVersion < 5) {
-        await _addColIfMissing(db, tableTarefa, colTarefaIdDocumento, 'INTEGER');
+        await _addColIfMissing(
+          db,
+          tableTarefa,
+          colTarefaIdDocumento,
+          'INTEGER',
+        );
         await _addColIfMissing(db, tableProva, colProvaIdDocumento, 'INTEGER');
       }
       if (oldVersion < 6) {
@@ -334,7 +373,12 @@ class DatabaseHelper {
         await _addColIfMissing(db, tableDocumento, colIdUsuario, 'TEXT');
       }
       if (oldVersion < 7) {
-        await _addColIfMissing(db, tableTarefa, colTarefaPrioridade, "TEXT DEFAULT 'media'");
+        await _addColIfMissing(
+          db,
+          tableTarefa,
+          colTarefaPrioridade,
+          "TEXT DEFAULT 'media'",
+        );
       }
       if (oldVersion < 8) {
         await _addColIfMissing(db, tableProva, colProvaIdDocumento, 'INTEGER');
@@ -352,14 +396,39 @@ class DatabaseHelper {
             $colNotaPeso REAL DEFAULT 1.0,
             $colNotaTipo TEXT DEFAULT 'prova',
             $colNotaData TEXT,
+            $colNotaIdProva INTEGER,
             $colIdUsuario TEXT,
             FOREIGN KEY($colNotaIdMateria) REFERENCES $tableMateria($colMateriaId) ON DELETE CASCADE
           )
         ''');
-        await _tryExecute(db,
-            'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)');
-        await _tryExecute(db,
-            'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)');
+        await _tryExecute(
+          db,
+          'CREATE INDEX IF NOT EXISTS idx_nota_materia ON $tableNota($colNotaIdMateria)',
+        );
+        await _tryExecute(
+          db,
+          'CREATE INDEX IF NOT EXISTS idx_nota_usuario ON $tableNota($colIdUsuario)',
+        );
+      }
+
+      if (oldVersion < 10) {
+        await _addColIfMissing(db, tableTarefa, colTarefaIdProva, 'INTEGER');
+        await _addColIfMissing(
+          db,
+          tableProva,
+          colProvaPeso,
+          'REAL DEFAULT 1.0',
+        );
+        await _addColIfMissing(
+          db,
+          tableDocumento,
+          colDocumentoIdProva,
+          'INTEGER',
+        );
+      }
+
+      if (oldVersion < 11) {
+        await _addColIfMissing(db, tableNota, colNotaIdProva, 'INTEGER');
       }
 
       // Sempre garante os índices
