@@ -8,6 +8,7 @@ class Documento {
   String nomeArquivo;
   String? resumo;
   String? questoes; // JSON das questões
+  String? respostas; // JSON com acertos, erros, etc
   String dataCriacao;
   String? idUsuario;
 
@@ -19,6 +20,7 @@ class Documento {
     required this.nomeArquivo,
     this.resumo,
     this.questoes,
+    this.respostas,
     required this.dataCriacao,
     this.idUsuario,
   });
@@ -32,6 +34,7 @@ class Documento {
       colDocumentoNomeArquivo: nomeArquivo,
       colDocumentoResumo: resumo,
       colDocumentoQuestoes: questoes,
+      colDocumentoRespostas: respostas,
       colDocumentoDataCriacao: dataCriacao,
       colIdUsuario: idUsuario,
     };
@@ -46,6 +49,7 @@ class Documento {
       nomeArquivo: map[colDocumentoNomeArquivo],
       resumo: map[colDocumentoResumo],
       questoes: map[colDocumentoQuestoes],
+      respostas: map[colDocumentoRespostas],
       dataCriacao: map[colDocumentoDataCriacao],
       idUsuario: map[colIdUsuario] as String?,
     );

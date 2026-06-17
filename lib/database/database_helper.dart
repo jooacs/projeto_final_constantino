@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'db_constants.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -7,73 +8,6 @@ class DatabaseHelper {
 
   static const String _dbName = 'studyflow.db';
   static const int _dbVersion = 9; // v9: adiciona tabela nota
-
-  // Tabelas
-  static const String tableMateria = 'materia';
-  static const String tableTarefa = 'tarefa';
-  static const String tableProva = 'prova';
-  static const String tableDocumento = 'documento';
-  static const String tableNota = 'nota'; // NOVA
-
-  // Coluna comum
-  static const String colIdUsuario = 'id_usuario';
-
-  // Materia
-  static const String colMateriaId = 'id';
-  static const String colMateriaNome = 'nome';
-  static const String colMateriaProfessor = 'professor';
-  static const String colMateriaCor = 'cor';
-  static const String colMateriaHorario = 'horario';
-  static const String colMateriaMetaHoras = 'meta_horas';
-  static const String colMateriaStatus = 'status';
-
-  // Tarefa
-  static const String colTarefaId = 'id';
-  static const String colTarefaTitulo = 'titulo';
-  static const String colTarefaDescricao = 'descricao';
-  static const String colTarefaConcluida = 'concluida';
-  static const String colTarefaIdMateria = 'id_materia';
-  static const String colTarefaDataCriacao = 'data_criacao';
-  static const String colTarefaDataEntrega = 'data_entrega';
-  static const String colTarefaDataConclusao = 'data_conclusao';
-  static const String colTarefaIdDocumento = 'id_documento';
-  static const String colTarefaPrioridade = 'prioridade';
-
-  // Prova
-  static const String colProvaId = 'id';
-  static const String colProvaTitulo = 'titulo';
-  static const String colProvaDescricao = 'descricao';
-  static const String colProvaDataCriacao = 'data_criacao';
-  static const String colProvaDataProva = 'data_prova';
-  static const String colProvaNota = 'nota';
-  static const String colProvaRealizada = 'realizada';
-  static const String colProvaIdMateria = 'id_materia';
-  static const String colProvaIdDocumento = 'id_documento';
-
-  // Documento
-  static const String colDocumentoId = 'id';
-  static const String colDocumentoTitulo = 'titulo';
-  static const String colDocumentoTipo = 'tipo';
-  static const String colDocumentoCaminho = 'caminho';
-  static const String colDocumentoNomeArquivo = 'nome_arquivo';
-  static const String colDocumentoDescricao = 'descricao';
-  static const String colDocumentoResumo = 'resumo';
-  static const String colDocumentoTopicos = 'topicos';
-  static const String colDocumentoSugeridos = 'sugeridos';
-  static const String colDocumentoQuestoes = 'questoes';
-  static const String colDocumentoRespostas = 'respostas';
-  static const String colDocumentoStatus = 'status';
-  static const String colDocumentoErro = 'erro';
-  static const String colDocumentoDataCriacao = 'data_criacao';
-
-  // Nota (NOVA)
-  static const String colNotaId = 'id';
-  static const String colNotaIdMateria = 'id_materia';
-  static const String colNotaDescricao = 'descricao';
-  static const String colNotaValor = 'valor';
-  static const String colNotaPeso = 'peso';
-  static const String colNotaTipo = 'tipo';
-  static const String colNotaData = 'data';
 
   DatabaseHelper._init();
 
@@ -117,6 +51,7 @@ class DatabaseHelper {
           $colMateriaNome TEXT NOT NULL UNIQUE,
           $colMateriaProfessor TEXT,
           $colMateriaCor INTEGER,
+          $colMateriaIcone INTEGER,
           $colMateriaHorario TEXT,
           $colMateriaMetaHoras REAL DEFAULT 0,
           $colMateriaStatus TEXT DEFAULT 'ativa',

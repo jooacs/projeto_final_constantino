@@ -1,6 +1,6 @@
 /// Modelo que representa uma Prova
 class Prova {
-  final int? id;
+  int? id;
   String titulo;
   String descricao;
   DateTime? dataCriacao;

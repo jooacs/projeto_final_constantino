@@ -1,6 +1,7 @@
 import '../database/database_helper.dart';
 import '../models/prova.dart';
 import 'auth_service.dart';
+import 'calendar_service.dart';
 
 class ProvaService {
   Future<int> inserirProva(Prova prova) async {
@@ -37,7 +38,18 @@ class ProvaService {
         map['id_documento'] = prova.documentoId;
       }
 
-      return await db.insert('prova', map);
+      final id = await db.insert('prova', map);
+      prova.id = id;
+
+      try {
+        final calendarService = CalendarService();
+        await calendarService.inserirEventoProva(prova);
+      } catch (e) {
+        // Ignora erro no calendário para não impedir a criação local
+        print('Erro no calendário: $e');
+      }
+
+      return id;
     } catch (e) {
       throw Exception('Erro ao inserir prova: $e');
     }

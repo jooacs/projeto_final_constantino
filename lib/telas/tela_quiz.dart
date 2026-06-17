@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../models/questao.dart';
+import '../models/documento.dart';
+import '../services/documento_service.dart';
 
 class TelaQuiz extends StatefulWidget {
   final List<Questao> questoes;
   final String assunto;
+  final Documento? documento;
 
-  const TelaQuiz({super.key, required this.questoes, required this.assunto});
+  const TelaQuiz({super.key, required this.questoes, required this.assunto, this.documento});
 
   @override
   State<TelaQuiz> createState() => _TelaQuizState();
@@ -38,9 +43,40 @@ class _TelaQuizState extends State<TelaQuiz> {
         _indiceQuestaoAtual++;
       });
     } else {
-      setState(() {
-        _quizFinalizado = true;
-      });
+      _finalizarQuiz();
+    }
+  }
+
+  Future<void> _finalizarQuiz() async {
+    setState(() {
+      _quizFinalizado = true;
+    });
+
+    if (widget.documento != null) {
+      int acertos = 0;
+      int erros = 0;
+      for (int i = 0; i < widget.questoes.length; i++) {
+        if (_respostasSelecionadas[i] == widget.questoes[i].indiceRespostaCorreta) {
+          acertos++;
+        } else {
+          erros++;
+        }
+      }
+
+      Map<String, dynamic> respostasData = {};
+      if (widget.documento!.respostas != null) {
+        try {
+          respostasData = jsonDecode(widget.documento!.respostas!);
+        } catch (_) {}
+      }
+
+      respostasData['acertos'] = acertos;
+      respostasData['erros'] = erros;
+
+      widget.documento!.respostas = jsonEncode(respostasData);
+      
+      final docService = DocumentoService();
+      await docService.updateDocumento(widget.documento!);
     }
   }
 
@@ -52,11 +88,38 @@ class _TelaQuizState extends State<TelaQuiz> {
     });
   }
 
+  Widget _buildLegend(Color color, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+          ),
+        )
+      ],
+    );
+  }
+
   Widget _buildTelaResultado() {
     int acertos = 0;
+    int erros = 0;
     for (int i = 0; i < widget.questoes.length; i++) {
       if (_respostasSelecionadas[i] == widget.questoes[i].indiceRespostaCorreta) {
         acertos++;
+      } else {
+        erros++;
       }
     }
 
@@ -76,7 +139,7 @@ class _TelaQuizState extends State<TelaQuiz> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Resultado do Quiz',
+            'Resultado do Quiz: ${widget.assunto}',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF334155),
@@ -117,6 +180,81 @@ class _TelaQuizState extends State<TelaQuiz> {
               ],
             ),
           ),
+          const SizedBox(height: 32),
+          
+          // Gráfico Estatístico
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'Estatísticas de Desempenho',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 180,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 4,
+                      centerSpaceRadius: 40,
+                      sections: [
+                        if (acertos > 0)
+                          PieChartSectionData(
+                            color: const Color(0xFF10B981), // Green
+                            value: acertos.toDouble(),
+                            title: '$acertos\n(${(acertos / widget.questoes.length * 100).toStringAsFixed(0)}%)',
+                            radius: 60,
+                            titleStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        if (erros > 0)
+                          PieChartSectionData(
+                            color: const Color(0xFFEF4444), // Red
+                            value: erros.toDouble(),
+                            title: '$erros\n(${(erros / widget.questoes.length * 100).toStringAsFixed(0)}%)',
+                            radius: 60,
+                            titleStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildLegend(const Color(0xFF10B981), 'Acertos'),
+                    const SizedBox(width: 24),
+                    _buildLegend(const Color(0xFFEF4444), 'Erros'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
           const SizedBox(height: 32),
           const Text(
             'Gabarito:',
@@ -187,6 +325,8 @@ class _TelaQuizState extends State<TelaQuiz> {
               padding: const EdgeInsets.all(16),
               backgroundColor: const Color(0xFF8B5CF6),
               foregroundColor: Colors.white,
+              elevation: 4,
+              shadowColor: const Color(0xFF8B5CF6).withOpacity(0.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

@@ -1,6 +1,6 @@
 /// Modelo que representa uma Tarefa/Atividade
 class Tarefa {
-  final int? id;
+  int? id;
   String titulo;
   String descricao;
   bool concluida;

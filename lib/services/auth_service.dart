@@ -6,7 +6,12 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   /// UID do usuário autenticado, ou null se não houver sessão ativa
   static String? get currentUserId => FirebaseAuth.instance.currentUser?.uid;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
+  final GoogleSignIn googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/calendar.events', // Permissão para adicionar eventos
+    ],
+  );
 
   Future<UserCredential> login({
     required String email,
@@ -78,7 +83,7 @@ class AuthService {
         print('[AuthService] Iniciando login com Google');
       }
 
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         if (kDebugMode) {
           print('[AuthService] Login com Google cancelado pelo usuário');
@@ -122,7 +127,7 @@ class AuthService {
       if (kDebugMode) {
         print('[AuthService] Fazendo logout');
       }
-      await _googleSignIn.signOut();
+      await googleSignIn.signOut();
       await _auth.signOut();
       if (kDebugMode) {
         print('[AuthService] Logout bem-sucedido');

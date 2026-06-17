@@ -29,6 +29,19 @@ class DocumentoService {
     return List.generate(maps.length, (i) => Documento.fromMap(maps[i]));
   }
 
+  Future<int> updateDocumento(Documento documento) async {
+    final uid = AuthService.currentUserId;
+    if (uid == null) throw Exception('Usuário não autenticado');
+
+    final db = await _dbHelper.database;
+    return await db.update(
+      tableDocumento,
+      documento.toMap(),
+      where: '$colDocumentoId = ? AND $colIdUsuario = ?',
+      whereArgs: [documento.id, uid],
+    );
+  }
+
   Future<int> deleteDocumento(int id) async {
     final uid = AuthService.currentUserId;
     if (uid == null) throw Exception('Usuário não autenticado');

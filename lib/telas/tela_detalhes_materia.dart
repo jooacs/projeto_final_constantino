@@ -33,12 +33,11 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   final DocumentoService documentoService = DocumentoService();
 
   // Controladores para Tarefa
-  // Controladores para Tarefa
   final tituloTarefaController = TextEditingController();
   final descricaoTarefaController = TextEditingController();
   DateTime? _dataCriacaoTarefa;
   DateTime? _dataEntregaTarefa;
-  String _prioridadeTarefa = prioridadeMedia; // NOVO
+  String _prioridadeTarefa = prioridadeMedia;
 
   // Controladores para Prova
   final tituloProvaController = TextEditingController();
@@ -46,6 +45,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   final notaProvaController = TextEditingController();
   DateTime? _dataCriacaoProva;
   DateTime? _dataProva;
+
+  // Arquivo PDF opcional selecionado na criação
+  PlatformFile? _pdfAnexoSelecionado;
 
   List<Tarefa> tarefas = [];
   List<Prova> provas = [];
@@ -64,6 +66,35 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   }
 
   // ================= IA & PDF =================
+  
+  Future<void> _processarAnexo(dynamic item, PlatformFile file) async {
+    final summary = await geminiService.summarizePdf(file.bytes!);
+    
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+    final savedFile = File(path.join(appDir.path, fileName));
+    await savedFile.writeAsBytes(file.bytes!);
+
+    final novoDoc = Documento(
+      titulo: 'Anexo: ${item.titulo}',
+      tipo: 'anexo',
+      caminho: savedFile.path,
+      nomeArquivo: file.name,
+      resumo: summary,
+      dataCriacao: DateTime.now().toIso8601String(),
+    );
+
+    final docId = await documentoService.insertDocumento(novoDoc);
+
+    if (item is Tarefa) {
+      item.documentoId = docId;
+      await tarefaService.atualizarTarefa(item);
+    } else if (item is Prova) {
+      item.documentoId = docId;
+      await provaService.atualizarProva(item);
+    }
+  }
+
   Future<void> _anexarPdf(dynamic item) async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
@@ -75,35 +106,15 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       if (result != null && result.files.single.bytes != null) {
         _mostrarSucesso('Gerando resumo via IA, por favor aguarde...');
         
-        final summary = await geminiService.summarizePdf(result.files.single.bytes!);
-        
-        final appDir = await getApplicationDocumentsDirectory();
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
-        final savedFile = File(path.join(appDir.path, fileName));
-        await savedFile.writeAsBytes(result.files.single.bytes!);
-
-        final novoDoc = Documento(
-          titulo: 'Resumo: ${item.titulo}',
-          tipo: 'resumo',
-          caminho: savedFile.path,
-          nomeArquivo: result.files.single.name,
-          resumo: summary,
-          dataCriacao: DateTime.now().toIso8601String(),
-        );
-
-        final docId = await documentoService.insertDocumento(novoDoc);
+        await _processarAnexo(item, result.files.single);
 
         if (item is Tarefa) {
-          item.documentoId = docId;
-          await tarefaService.atualizarTarefa(item);
           await carregarTarefas();
         } else if (item is Prova) {
-          item.documentoId = docId;
-          await provaService.atualizarProva(item);
           await carregarProvas();
         }
         
-        _mostrarSucesso('Resumo gerado e anexado com sucesso!');
+        _mostrarSucesso('PDF anexado e resumido com sucesso!');
       }
     } catch (e) {
       _mostrarErro('Erro ao gerar resumo: $e');
@@ -197,6 +208,11 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _mostrarErro('Preencha o título da tarefa');
       return;
     }
+    
+    // Armazena o PDF selecionado localmente e fecha o dialog
+    final pdfSelecionado = _pdfAnexoSelecionado;
+    Navigator.pop(context);
+
     try {
       final tarefa = Tarefa(
         titulo: tituloTarefaController.text.trim(),
@@ -207,16 +223,26 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         dataEntrega: _dataEntregaTarefa,
         prioridade: _prioridadeTarefa,
       );
-      await tarefaService.inserirTarefa(tarefa);
+      
+      final idTarefa = await tarefaService.inserirTarefa(tarefa);
+      tarefa.id = idTarefa;
+
+      if (pdfSelecionado != null) {
+        _mostrarSucesso('Salvando tarefa e lendo PDF, aguarde...');
+        await _processarAnexo(tarefa, pdfSelecionado);
+        _mostrarSucesso('Tarefa e anexo adicionados com sucesso!');
+      } else {
+        _mostrarSucesso('Tarefa adicionada com sucesso!');
+      }
+
       if (!mounted) return;
       tituloTarefaController.clear();
       descricaoTarefaController.clear();
       _dataCriacaoTarefa = null;
       _dataEntregaTarefa = null;
       _prioridadeTarefa = prioridadeMedia;
+      _pdfAnexoSelecionado = null;
       await carregarTarefas();
-      Navigator.pop(context);
-      _mostrarSucesso('Tarefa adicionada com sucesso!');
     } catch (e) {
       if (mounted) _mostrarErro('Erro ao adicionar tarefa: $e');
     }
@@ -263,6 +289,11 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _mostrarErro('Preencha o título da prova');
       return;
     }
+
+    // Armazena o PDF selecionado localmente e fecha o dialog
+    final pdfSelecionado = _pdfAnexoSelecionado;
+    Navigator.pop(context);
+
     try {
       final prova = Prova(
         titulo: tituloProvaController.text.trim(),
@@ -273,16 +304,26 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         dataProva: _dataProva,
         nota: double.tryParse(notaProvaController.text),
       );
-      await provaService.inserirProva(prova);
+      
+      final idProva = await provaService.inserirProva(prova);
+      prova.id = idProva;
+
+      if (pdfSelecionado != null) {
+        _mostrarSucesso('Salvando prova e lendo PDF, aguarde...');
+        await _processarAnexo(prova, pdfSelecionado);
+        _mostrarSucesso('Prova e anexo adicionados com sucesso!');
+      } else {
+        _mostrarSucesso('Prova adicionada com sucesso!');
+      }
+
       if (!mounted) return;
       tituloProvaController.clear();
       descricaoProvaController.clear();
       notaProvaController.clear();
       _dataCriacaoProva = null;
       _dataProva = null;
+      _pdfAnexoSelecionado = null;
       await carregarProvas();
-      Navigator.pop(context);
-      _mostrarSucesso('Prova adicionada com sucesso!');
     } catch (e) {
       if (mounted) _mostrarErro('Erro ao adicionar prova: $e');
     }
@@ -452,6 +493,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     descricaoTarefaController.clear();
     _dataCriacaoTarefa = DateTime.now();
     _dataEntregaTarefa = null;
+    _pdfAnexoSelecionado = null;
 
     showDialog(
       context: context,
@@ -488,6 +530,32 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                         if (picked != null) setDialogState(() => _dataEntregaTarefa = picked);
                       },
                     ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        FilePickerResult? result = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf'],
+                          withData: true,
+                        );
+                        if (result != null && result.files.single.bytes != null) {
+                          setDialogState(() {
+                            _pdfAnexoSelecionado = result.files.single;
+                          });
+                        }
+                      },
+                      icon: Icon(_pdfAnexoSelecionado != null ? Icons.check_circle : Icons.picture_as_pdf, color: _pdfAnexoSelecionado != null ? Colors.green : null),
+                      label: Text(
+                        _pdfAnexoSelecionado != null ? 'PDF: ${_pdfAnexoSelecionado!.name}' : 'Anexar PDF (Opcional)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        side: BorderSide(color: _pdfAnexoSelecionado != null ? Colors.green : Colors.grey),
+                        alignment: Alignment.centerLeft
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -508,6 +576,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     notaProvaController.clear();
     _dataCriacaoProva = DateTime.now();
     _dataProva = null;
+    _pdfAnexoSelecionado = null;
 
     showDialog(
       context: context,
@@ -539,6 +608,32 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                       controller: notaProvaController, 
                       keyboardType: TextInputType.number, 
                       decoration: const InputDecoration(labelText: 'Nota (Opcional)')
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        FilePickerResult? result = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf'],
+                          withData: true,
+                        );
+                        if (result != null && result.files.single.bytes != null) {
+                          setDialogState(() {
+                            _pdfAnexoSelecionado = result.files.single;
+                          });
+                        }
+                      },
+                      icon: Icon(_pdfAnexoSelecionado != null ? Icons.check_circle : Icons.picture_as_pdf, color: _pdfAnexoSelecionado != null ? Colors.green : null),
+                      label: Text(
+                        _pdfAnexoSelecionado != null ? 'PDF: ${_pdfAnexoSelecionado!.name}' : 'Anexar PDF (Opcional)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        side: BorderSide(color: _pdfAnexoSelecionado != null ? Colors.green : Colors.grey),
+                        alignment: Alignment.centerLeft
+                      ),
                     ),
                   ],
                 ),

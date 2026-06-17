@@ -9,11 +9,14 @@ import '../models/nota.dart';
 import '../models/materia.dart';
 import 'tela_materias.dart';
 import 'tela_resumo_pdf.dart';
+import 'tela_gerador_quiz.dart';
+import 'tela_pomodoro.dart';
 import 'tela_tarefas.dart';
 import 'tela_provas.dart';
 import 'tela_notas.dart';
 import 'tela_cronograma.dart';
 import 'tela_login.dart';
+import 'tela_questoes.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -234,6 +237,20 @@ class _HomeScreenState extends State<HomeScreen>
           'ativo': true,
         },
         {
+          'title': 'IA Quiz',
+          'icon': Icons.quiz_rounded,
+          'color': const Color(0xFFEC4899),
+          'screen': const TelaGeradorQuiz(),
+          'ativo': true,
+        },
+        {
+          'title': 'Questões de Anexos',
+          'icon': Icons.contact_support_rounded,
+          'color': const Color(0xFF10B981),
+          'screen': const TelaQuestoes(),
+          'ativo': true,
+        },
+        {
           'title': 'Metas',
           'icon': Icons.flag_rounded,
           'color': const Color(0xFF14B8A6),
@@ -245,6 +262,13 @@ class _HomeScreenState extends State<HomeScreen>
           'icon': Icons.calendar_month_rounded,
           'color': const Color(0xFF6366F1),
           'screen': const TelaCronograma(),
+          'ativo': true,
+        },
+        {
+          'title': 'Pomodoro',
+          'icon': Icons.timer_rounded,
+          'color': const Color(0xFFE11D48),
+          'screen': const TelaPomodoro(),
           'ativo': true,
         },
       ];

@@ -1,6 +1,7 @@
 import '../database/database_helper.dart';
 import '../models/tarefa.dart';
 import 'auth_service.dart';
+import 'calendar_service.dart';
 
 /// Serviço responsável por operações CRUD de Tarefas
 class TarefaService {
@@ -22,7 +23,18 @@ class TarefaService {
       tarefa.idUsuario = uid;
 
       final db = await DatabaseHelper.instance.database;
-      return await db.insert('tarefa', tarefa.toMap());
+      final id = await db.insert('tarefa', tarefa.toMap());
+      
+      tarefa.id = id;
+      try {
+        final calendarService = CalendarService();
+        await calendarService.inserirEventoTarefa(tarefa);
+      } catch (e) {
+        // Ignora erro no calendário para não impedir a criação local
+        print('Erro no calendário: $e');
+      }
+
+      return id;
     } catch (e) {
       throw Exception('Erro ao inserir tarefa: $e');
     }

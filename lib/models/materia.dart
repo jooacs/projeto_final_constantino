@@ -6,6 +6,7 @@ class Materia {
   String nome;
   String professor;
   Color cor;
+  IconData? icone;
   String horario;
   double metaHoras;
   String status;
@@ -16,6 +17,7 @@ class Materia {
     required this.nome,
     required this.professor,
     required this.cor,
+    this.icone,
     this.horario = '',
     this.metaHoras = 0,
     this.status = 'ativa',
@@ -29,6 +31,7 @@ class Materia {
       'nome': nome.trim(),
       'professor': professor.trim(),
       'cor': cor.value,
+      'icone': icone?.codePoint,
       'horario': horario.trim(),
       'meta_horas': metaHoras,
       'status': status.trim(),
@@ -43,6 +46,7 @@ class Materia {
       nome: (map['nome'] ?? '').toString().trim(),
       professor: (map['professor'] ?? '').toString().trim(),
       cor: Color(map['cor'] as int? ?? Colors.blue.value),
+      icone: map['icone'] != null ? IconData(map['icone'] as int, fontFamily: 'MaterialIcons') : null,
       horario: (map['horario'] ?? '').toString().trim(),
       metaHoras: ((map['meta_horas'] ?? 0) as num).toDouble(),
       status: (map['status'] ?? 'ativa').toString().trim(),

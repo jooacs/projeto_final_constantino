@@ -16,6 +16,7 @@ const String colMateriaId = 'id';
 const String colMateriaNome = 'nome';
 const String colMateriaProfessor = 'professor';
 const String colMateriaCor = 'cor';
+const String colMateriaIcone = 'icone';
 const String colMateriaHorario = 'horario';
 const String colMateriaMetaHoras = 'meta_horas';
 const String colMateriaStatus = 'status';
@@ -65,6 +66,16 @@ const String colDocumentoRespostas = 'respostas';
 const String colDocumentoStatus = 'status';
 const String colDocumentoErro = 'erro';
 const String colDocumentoDataCriacao = 'data_criacao';
+
+// ============= TABELA NOTA =============
+const String tableNota = 'nota';
+const String colNotaId = 'id';
+const String colNotaIdMateria = 'id_materia';
+const String colNotaDescricao = 'descricao';
+const String colNotaValor = 'valor';
+const String colNotaPeso = 'peso';
+const String colNotaTipo = 'tipo';
+const String colNotaData = 'data';
 
 // ============= VALORES PADRÃO =============
 const String statusMateriaAtiva = 'ativa';
