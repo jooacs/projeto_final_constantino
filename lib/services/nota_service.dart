@@ -1,5 +1,6 @@
 import '../database/database_helper.dart';
 import '../models/nota.dart';
+import '../models/prova.dart';
 import 'auth_service.dart';
 
 class NotaService {
@@ -114,6 +115,75 @@ class NotaService {
   }
 
   /// Calcula a média ponderada de notas de uma matéria
+  Future<int> salvarNotaDaProva(Prova prova, double valor) async {
+    try {
+      if (prova.id == null) throw ArgumentError('ID da prova inválido');
+      if (valor < 0 || valor > 10) {
+        throw ArgumentError('Nota deve ser entre 0 e 10');
+      }
+      final uid = AuthService.currentUserId;
+      if (uid == null) throw Exception('Usuário não autenticado');
+
+      final db = await DatabaseHelper.instance.database;
+      final existente = await db.query(
+        _table,
+        where:
+            '(id_prova = ? OR (id_prova IS NULL AND id_materia = ? AND descricao = ? AND tipo = ?)) AND id_usuario = ?',
+        whereArgs: [
+          prova.id,
+          prova.idMateria,
+          prova.titulo.trim(),
+          'prova',
+          uid,
+        ],
+        limit: 1,
+      );
+
+      final nota = Nota(
+        id: existente.isNotEmpty ? existente.first['id'] as int? : null,
+        idMateria: prova.idMateria,
+        descricao: prova.titulo,
+        valor: valor,
+        peso: prova.peso,
+        tipo: 'prova',
+        data: prova.dataProva ?? DateTime.now(),
+        idProva: prova.id,
+        idUsuario: uid,
+      );
+      final map = nota.toMap();
+      map.remove('id');
+
+      if (existente.isNotEmpty) {
+        return await db.update(
+          _table,
+          map,
+          where: 'id = ? AND id_usuario = ?',
+          whereArgs: [nota.id, uid],
+        );
+      }
+
+      return await db.insert(_table, map);
+    } catch (e) {
+      throw Exception('Erro ao salvar nota da prova: $e');
+    }
+  }
+
+  Future<int> removerNotaDaProva(int idProva) async {
+    try {
+      final uid = AuthService.currentUserId;
+      if (uid == null) return 0;
+
+      final db = await DatabaseHelper.instance.database;
+      return await db.delete(
+        _table,
+        where: 'id_prova = ? AND id_usuario = ?',
+        whereArgs: [idProva, uid],
+      );
+    } catch (e) {
+      throw Exception('Erro ao remover nota da prova: $e');
+    }
+  }
+
   Future<double?> calcularMediaMateria(int idMateria) async {
     try {
       final notas = await buscarPorMateria(idMateria);

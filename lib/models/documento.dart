@@ -10,6 +10,7 @@ class Documento {
   String? questoes; // JSON das questões
   String? respostas; // JSON com acertos, erros, etc
   String dataCriacao;
+  int? idProva; // NOVO: vincula o resumo/quiz a uma prova específica
   String? idUsuario;
 
   Documento({
@@ -22,6 +23,7 @@ class Documento {
     this.questoes,
     this.respostas,
     required this.dataCriacao,
+    this.idProva,
     this.idUsuario,
   });
 
@@ -36,6 +38,7 @@ class Documento {
       colDocumentoQuestoes: questoes,
       colDocumentoRespostas: respostas,
       colDocumentoDataCriacao: dataCriacao,
+      'id_prova': idProva,
       colIdUsuario: idUsuario,
     };
   }
@@ -51,6 +54,7 @@ class Documento {
       questoes: map[colDocumentoQuestoes],
       respostas: map[colDocumentoRespostas],
       dataCriacao: map[colDocumentoDataCriacao],
+      idProva: map['id_prova'] as int?,
       idUsuario: map[colIdUsuario] as String?,
     );
   }
