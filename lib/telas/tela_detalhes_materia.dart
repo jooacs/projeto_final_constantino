@@ -8,10 +8,8 @@ import '../database/db_constants.dart';
 
 import '../models/materia.dart';
 import '../models/tarefa.dart';
-import '../models/prova.dart';
 import '../models/documento.dart';
 import '../services/tarefa_service.dart';
-import '../services/prova_service.dart';
 import '../services/gemini_service.dart';
 import '../services/documento_service.dart';
 
@@ -24,50 +22,25 @@ class TelaDetalhesMateria extends StatefulWidget {
   State<TelaDetalhesMateria> createState() => _TelaDetalhesMateriaState();
 }
 
-class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
   final TarefaService tarefaService = TarefaService();
-  final ProvaService provaService = ProvaService();
   final GeminiService geminiService = GeminiService();
   final DocumentoService documentoService = DocumentoService();
 
-  // Controladores para Tarefa
-  final tituloTarefaController = TextEditingController();
-  final descricaoTarefaController = TextEditingController();
-  DateTime? _dataCriacaoTarefa;
-  DateTime? _dataEntregaTarefa;
-  String _prioridadeTarefa = prioridadeMedia;
-  Prova? _provaVinculadaTarefa; // NOVO: vincula a tarefa criada a uma prova
-
-  // Controladores para Prova
-  final tituloProvaController = TextEditingController();
-  final descricaoProvaController = TextEditingController();
-  final notaProvaController = TextEditingController();
-  final pesoProvaController = TextEditingController(text: '1.0'); // NOVO
-  DateTime? _dataCriacaoProva;
-  DateTime? _dataProva;
-
   List<Tarefa> tarefas = [];
-  List<Prova> provas = [];
   bool _isLoadingTarefas = false;
-  bool _isLoadingProvas = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
     carregarTarefas();
-    carregarProvas();
   }
 
   // ================= IA & PDF =================
-  Future<void> _anexarPdf(dynamic item) async {
+
+  Future<void> _anexarPdf(Tarefa tarefa) async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         withData: true,
@@ -75,39 +48,30 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
 
       if (result != null && result.files.single.bytes != null) {
         _mostrarSucesso('Gerando resumo via IA, por favor aguarde...');
-        
-        final summary = await geminiService.summarizePdf(result.files.single.bytes!);
-        
+
+        final summary = await geminiService.summarizePdf(
+          result.files.single.bytes!,
+        );
+
         final appDir = await getApplicationDocumentsDirectory();
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
         final savedFile = File(path.join(appDir.path, fileName));
         await savedFile.writeAsBytes(result.files.single.bytes!);
 
-        // Se o item for uma Prova, vincula o resumo a ela (id_prova)
-        final int? idProvaVinculada = item is Prova ? item.id : null;
-
         final novoDoc = Documento(
-          titulo: 'Resumo: ${item.titulo}',
+          titulo: 'Resumo: ${tarefa.titulo}',
           tipo: 'resumo',
           caminho: savedFile.path,
           nomeArquivo: result.files.single.name,
           resumo: summary,
           dataCriacao: DateTime.now().toIso8601String(),
-          idProva: idProvaVinculada,
         );
 
         final docId = await documentoService.insertDocumento(novoDoc);
-
-        if (item is Tarefa) {
-          item.documentoId = docId;
-          await tarefaService.atualizarTarefa(item);
-          await carregarTarefas();
-        } else if (item is Prova) {
-          item.documentoId = docId;
-          await provaService.atualizarProva(item);
-          await carregarProvas();
-        }
-        
+        tarefa.documentoId = docId;
+        await tarefaService.atualizarTarefa(tarefa);
+        await carregarTarefas();
         _mostrarSucesso('Resumo gerado e anexado com sucesso!');
       }
     } catch (e) {
@@ -148,17 +112,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    tituloTarefaController.dispose();
-    descricaoTarefaController.dispose();
-    tituloProvaController.dispose();
-    descricaoProvaController.dispose();
-    notaProvaController.dispose();
-    pesoProvaController.dispose();
-    super.dispose();
-  }
+  // ================= TAREFAS =================
 
   Future<void> carregarTarefas() async {
     setState(() => _isLoadingTarefas = true);
@@ -178,50 +132,25 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     }
   }
 
-  Future<void> carregarProvas() async {
-    setState(() => _isLoadingProvas = true);
-    try {
-      final lista = await provaService.buscarPorMateria(widget.materia.id!);
-      if (mounted) {
-        setState(() {
-          provas = lista;
-          _isLoadingProvas = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingProvas = false);
-        _mostrarErro('Erro ao carregar provas: $e');
-      }
-    }
-  }
-
-  // ================= TAREFAS =================
-
-  Future<void> adicionarTarefa() async {
-    if (tituloTarefaController.text.trim().isEmpty) {
-      _mostrarErro('Preencha o título da tarefa');
-      return;
-    }
+  Future<void> adicionarTarefa(
+    String titulo,
+    String descricao,
+    String prioridade,
+    DateTime? dataCriacao,
+    DateTime? dataEntrega,
+  ) async {
     try {
       final tarefa = Tarefa(
-        titulo: tituloTarefaController.text.trim(),
-        descricao: descricaoTarefaController.text.trim(),
+        titulo: titulo,
+        descricao: descricao,
         concluida: false,
         idMateria: widget.materia.id!,
-        dataCriacao: _dataCriacaoTarefa ?? DateTime.now(),
-        dataEntrega: _dataEntregaTarefa,
-        prioridade: _prioridadeTarefa,
-        idProva: _provaVinculadaTarefa?.id,
+        dataCriacao: dataCriacao ?? DateTime.now(),
+        dataEntrega: dataEntrega,
+        prioridade: prioridade,
       );
       await tarefaService.inserirTarefa(tarefa);
       if (!mounted) return;
-      tituloTarefaController.clear();
-      descricaoTarefaController.clear();
-      _dataCriacaoTarefa = null;
-      _dataEntregaTarefa = null;
-      _prioridadeTarefa = prioridadeMedia;
-      _provaVinculadaTarefa = null;
       await carregarTarefas();
       Navigator.pop(context);
       _mostrarSucesso('Tarefa adicionada com sucesso!');
@@ -264,184 +193,26 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     }
   }
 
-  // ================= PROVAS =================
-
-  Future<void> adicionarProva() async {
-    if (tituloProvaController.text.trim().isEmpty) {
-      _mostrarErro('Preencha o título da prova');
-      return;
-    }
-    final peso = double.tryParse(
-            pesoProvaController.text.trim().replaceAll(',', '.')) ??
-        1.0;
-    if (peso <= 0) {
-      _mostrarErro('O peso deve ser maior que zero');
-      return;
-    }
-    try {
-      final prova = Prova(
-        titulo: tituloProvaController.text.trim(),
-        descricao: descricaoProvaController.text.trim(),
-        realizada: false,
-        idMateria: widget.materia.id!,
-        dataCriacao: _dataCriacaoProva ?? DateTime.now(),
-        dataProva: _dataProva,
-        nota: double.tryParse(notaProvaController.text),
-        peso: peso,
-      );
-      await provaService.inserirProva(prova);
-      if (!mounted) return;
-      tituloProvaController.clear();
-      descricaoProvaController.clear();
-      notaProvaController.clear();
-      pesoProvaController.text = '1.0';
-      _dataCriacaoProva = null;
-      _dataProva = null;
-      await carregarProvas();
-      Navigator.pop(context);
-      _mostrarSucesso('Prova adicionada com sucesso!');
-    } catch (e) {
-      if (mounted) _mostrarErro('Erro ao adicionar prova: $e');
-    }
-  }
-
-  /// Marca a prova como realizada/pendente.
-  /// Ao marcar como realizada, pede a nota obtida e a registra também
-  /// na tabela de Notas para entrar nos cálculos de desempenho.
-  Future<void> atualizarStatusProva(int index, bool? newValue) async {
-    if (newValue == null) return;
-    final prova = provas[index];
-
-    if (newValue == true && !prova.realizada) {
-      final nota = await _pedirNotaProva(prova);
-      if (nota == null) return; // cancelado: não marca como realizada
-
-      try {
-        prova.realizada = true;
-        prova.nota = nota;
-        await provaService.atualizarProva(prova);
-        if (!mounted) return;
-        await carregarProvas();
-        _mostrarSucesso('✅ Prova concluída! Nota $nota registrada em Notas.');
-      } catch (e) {
-        if (!mounted) return;
-        _mostrarErro('Erro ao atualizar prova: $e');
-      }
-    } else {
-      try {
-        provas[index].realizada = newValue;
-        await provaService.atualizarProva(provas[index]);
-        if (!mounted) return;
-        await carregarProvas();
-        _mostrarSucesso(newValue ? 'Prova realizada!' : 'Prova pendente!');
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          provas[index].realizada = !newValue;
-        });
-        _mostrarErro('Erro ao atualizar prova: $e');
-      }
-    }
-  }
-
-  Future<double?> _pedirNotaProva(Prova prova) async {
-    final ctrl = TextEditingController();
-    return showDialog<double>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Qual foi a sua nota?',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(prova.titulo,
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text('Peso: ${prova.peso.toStringAsFixed(1)}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              decoration: InputDecoration(
-                hintText: '0.0 — 10.0',
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-            onPressed: () {
-              final valor = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
-              if (valor == null || valor < 0 || valor > 10) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Informe uma nota entre 0 e 10.')),
-                );
-                return;
-              }
-              Navigator.pop(ctx, valor);
-            },
-            child: const Text('Salvar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> deletarProva(int index) async {
-    final confirmado = await _confirmarExclusao(provas[index].titulo);
-    if (confirmado == true) {
-      try {
-        await provaService.removerProva(provas[index].id!);
-        if (mounted) {
-          await carregarProvas();
-          _mostrarSucesso('Prova removida!');
-        }
-      } catch (e) {
-        if (mounted) _mostrarErro('Erro ao remover prova: $e');
-      }
-    }
-  }
-
   // ================= UTEIS =================
 
   Future<bool?> _confirmarExclusao(String titulo) {
     return showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirmar exclusão'),
-          content: Text('Tem certeza que deseja deletar "$titulo"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Deletar', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar exclusão'),
+        content: Text('Tem certeza que deseja deletar "$titulo"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Deletar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -456,7 +227,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       tarefa.dataEntrega!.month,
       tarefa.dataEntrega!.day,
     );
-
     final diff = entregaSemHora.difference(hojeSemHora).inDays;
 
     if (diff < 0) return 'Atrasada há ${-diff} dia(s)';
@@ -538,168 +308,391 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   }
 
   void _mostrarErro(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: Colors.red));
-  }
-
-  void _mostrarSucesso(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: Colors.green));
-  }
-
-  // ================= DIALOGS =================
-
-  void abrirDialogAdicionarTarefa() {
-    tituloTarefaController.clear();
-    descricaoTarefaController.clear();
-    _dataCriacaoTarefa = DateTime.now();
-    _dataEntregaTarefa = null;
-    _provaVinculadaTarefa = null;
-    _prioridadeTarefa = prioridadeMedia;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Nova Tarefa'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(controller: tituloTarefaController, decoration: const InputDecoration(labelText: 'Título')),
-                    const SizedBox(height: 10),
-                    TextField(controller: descricaoTarefaController, maxLines: 3, decoration: const InputDecoration(labelText: 'Descrição')),
-                    const SizedBox(height: 16),
-                    const Text('Prioridade',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _prioridadeTarefa,
-                      items: const [
-                        DropdownMenuItem(value: prioridadeBaixa, child: Text('🟢  Baixa')),
-                        DropdownMenuItem(value: prioridadeMedia, child: Text('🟡  Média')),
-                        DropdownMenuItem(value: prioridadeAlta,  child: Text('🔴  Alta')),
-                      ],
-                      onChanged: (v) => setDialogState(() => _prioridadeTarefa = v ?? prioridadeMedia),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        isDense: true,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Data de Criação'),
-                      subtitle: Text(_dataCriacaoTarefa != null ? _formatDate(_dataCriacaoTarefa!) : 'Selecionar'),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataCriacaoTarefa ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataCriacaoTarefa = picked);
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Data de Entrega'),
-                      subtitle: Text(_dataEntregaTarefa != null ? _formatDate(_dataEntregaTarefa!) : 'Sem prazo'),
-                      trailing: const Icon(Icons.event),
-                      onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataEntregaTarefa ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataEntregaTarefa = picked);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    if (provas.isNotEmpty) ...[
-                      const Text('Vincular a uma prova (opcional)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<Prova?>(
-                        value: _provaVinculadaTarefa,
-                        items: [
-                          const DropdownMenuItem<Prova?>(
-                            value: null,
-                            child: Text('Nenhuma'),
-                          ),
-                          ...provas.map((p) => DropdownMenuItem<Prova?>(
-                                value: p,
-                                child: Text(p.titulo, overflow: TextOverflow.ellipsis),
-                              )),
-                        ],
-                        onChanged: (v) => setDialogState(() => _provaVinculadaTarefa = v),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          isDense: true,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                ElevatedButton(onPressed: adicionarTarefa, child: const Text('Salvar')),
-              ],
-            );
-          }
-        );
-      },
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
     );
   }
 
-  void abrirDialogAdicionarProva() {
-    tituloProvaController.clear();
-    descricaoProvaController.clear();
-    notaProvaController.clear();
-    pesoProvaController.text = '1.0';
-    _dataCriacaoProva = DateTime.now();
-    _dataProva = null;
+  void _mostrarSucesso(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.green),
+    );
+  }
+
+  // ================= DIALOG =================
+
+  void abrirDialogAdicionarTarefa() {
+    final tituloCtrl = TextEditingController();
+    final descricaoCtrl = TextEditingController();
+
+    DateTime dataCriacao = DateTime.now();
+    DateTime? dataEntrega;
+    String prioridadeSelecionada = prioridadeMedia;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: const Text('Nova Prova'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(controller: tituloProvaController, decoration: const InputDecoration(labelText: 'Título')),
-                    const SizedBox(height: 10),
-                    TextField(controller: descricaoProvaController, maxLines: 3, decoration: const InputDecoration(labelText: 'Descrição (opcional)')),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Data da Prova'),
-                      subtitle: Text(_dataProva != null ? _formatDate(_dataProva!) : 'Sem data definida'),
-                      trailing: const Icon(Icons.event),
-                      onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataProva ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataProva = picked);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: pesoProvaController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Peso da avaliação',
-                        hintText: 'Ex: 1.0, 2.0...',
-                        helperText: 'Usado no cálculo da média ponderada',
-                      ),
-                    ),
-                  ],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              backgroundColor: const Color(0xFFF1ECF7),
+              title: const Text(
+                'Nova Tarefa',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
                 ),
               ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: tituloCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Título',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      TextField(
+                        controller: descricaoCtrl,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Descrição',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      const Text(
+                        'Prioridade',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      DropdownButtonFormField<String>(
+                        value: prioridadeSelecionada,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: prioridadeBaixa,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  color: Color(0xFF10B981),
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Text('Baixa'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: prioridadeMedia,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  color: Color(0xFFF59E0B),
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Text('Média'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: prioridadeAlta,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  color: Color(0xFFEF4444),
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Text('Alta'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              prioridadeSelecionada = value;
+                            });
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final data = await showDatePicker(
+                            context: ctx,
+                            initialDate: dataCriacao,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+
+                          if (data != null) {
+                            setDialogState(() {
+                              dataCriacao = data;
+                            });
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Data de Criação',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatDate(dataCriacao),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              color: Color(0xFF4F46E5),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final data = await showDatePicker(
+                            context: ctx,
+                            initialDate: dataEntrega ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+
+                          if (data != null) {
+                            setDialogState(() {
+                              dataEntrega = data;
+                            });
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Data de Entrega',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    dataEntrega == null
+                                        ? 'Sem prazo'
+                                        : _formatDate(dataEntrega!),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.event_rounded,
+                              color: Color(0xFF4F46E5),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.link_rounded,
+                              size: 16,
+                              color: Color(0xFF4F46E5),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Vinculada à matéria: ${widget.materia.nome}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF4F46E5),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                ElevatedButton(onPressed: adicionarProva, child: const Text('Salvar')),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: Color(0xFF6D5D9A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () async {
+                    if (tituloCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                          content: Text('Informe o título da tarefa.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      final tarefa = Tarefa(
+                        titulo: tituloCtrl.text.trim(),
+                        descricao: descricaoCtrl.text.trim(),
+                        concluida: false,
+                        idMateria: widget.materia.id!,
+                        dataCriacao: dataCriacao,
+                        dataEntrega: dataEntrega,
+                        prioridade: prioridadeSelecionada,
+                        idProva: null,
+                      );
+
+                      await tarefaService.inserirTarefa(tarefa);
+
+                      if (!mounted) return;
+
+                      Navigator.pop(ctx);
+
+                      await carregarTarefas();
+
+                      if (!mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Tarefa adicionada!'),
+                          backgroundColor: Color(0xFF10B981),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text('Erro ao adicionar tarefa: $e')),
+                      );
+                    }
+                  },
+                  child: const Text(
+                    'Salvar',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
               ],
             );
-          }
+          },
         );
       },
     );
@@ -714,16 +707,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       appBar: AppBar(
         title: Text(widget.materia.nome),
         backgroundColor: Colors.transparent,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF4F46E5),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF4F46E5),
-          tabs: const [
-            Tab(text: 'Tarefas', icon: Icon(Icons.task_alt_rounded)),
-            Tab(text: 'Provas', icon: Icon(Icons.assignment_late_rounded)),
-          ],
-        ),
       ),
       body: Column(
         children: [
@@ -731,60 +714,57 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             padding: const EdgeInsets.all(16),
             child: Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: widget.materia.cor,
                   child: const Icon(Icons.menu_book, color: Colors.white),
                 ),
-                title: Text(widget.materia.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  widget.materia.nome,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Text(widget.materia.professor),
               ),
             ),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildListaTarefas(),
-                _buildListaProvas(),
-              ],
-            ),
-          ),
+          Expanded(child: _buildListaTarefas()),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (_tabController.index == 0) {
-            abrirDialogAdicionarTarefa();
-          } else {
-            abrirDialogAdicionarProva();
-          }
-        },
+        onPressed: abrirDialogAdicionarTarefa,
         backgroundColor: const Color(0xFF4F46E5),
         foregroundColor: Colors.white,
-        child: Icon(_tabController.index == 0 ? Icons.add_task_rounded : Icons.post_add_rounded),
+        child: const Icon(Icons.add_task_rounded),
       ),
     );
   }
 
   Widget _buildListaTarefas() {
-    if (_isLoadingTarefas) return const Center(child: CircularProgressIndicator());
+    if (_isLoadingTarefas) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (tarefas.isEmpty) {
-      return const Center(child: Text('Nenhuma tarefa cadastrada. Clique no +', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text(
+          'Nenhuma tarefa cadastrada. Clique no +',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: tarefas.length,
       itemBuilder: (context, index) {
         final tarefa = tarefas[index];
-        final provaVinculada = tarefa.idProva != null
-            ? provas.where((p) => p.id == tarefa.idProva).firstOrNull
-            : null;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Column(
@@ -796,7 +776,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     tarefa.titulo,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      decoration: tarefa.concluida ? TextDecoration.lineThrough : null,
+                      decoration: tarefa.concluida
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                   subtitle: tarefa.descricao.isNotEmpty
@@ -813,18 +795,27 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     children: [
                       if (tarefa.documentoId != null)
                         IconButton(
-                          icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                          icon: const Icon(
+                            Icons.description,
+                            color: Color(0xFF8B5CF6),
+                          ),
                           onPressed: () => _verResumo(tarefa.documentoId!),
                           tooltip: 'Ver Resumo',
                         )
                       else
                         IconButton(
-                          icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                          icon: const Icon(
+                            Icons.picture_as_pdf,
+                            color: Color(0xFF64748B),
+                          ),
                           onPressed: () => _anexarPdf(tarefa),
                           tooltip: 'Anexar PDF (IA)',
                         ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
                         onPressed: () => deletarTarefa(index),
                       ),
                     ],
@@ -856,70 +847,8 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                           'Concluída em: ${_formatDate(tarefa.dataConclusao!)}',
                           const Color(0xFF94A3B8),
                         ),
-                      if (provaVinculada != null)
-                        _buildChip(
-                          '📝 ${provaVinculada.titulo}',
-                          const Color(0xFFEF4444),
-                        ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildListaProvas() {
-    if (_isLoadingProvas) return const Center(child: CircularProgressIndicator());
-    if (provas.isEmpty) {
-      return const Center(child: Text('Nenhuma prova cadastrada. Clique no +', style: TextStyle(color: Colors.grey)));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: provas.length,
-      itemBuilder: (context, index) {
-        final prova = provas[index];
-        String datasTexto = '';
-        if (prova.dataProva != null) datasTexto += 'Data da Prova: ${_formatDate(prova.dataProva!)}';
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: CheckboxListTile(
-            title: Text(prova.titulo, style: TextStyle(fontWeight: FontWeight.bold, decoration: prova.realizada ? TextDecoration.lineThrough : null)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (prova.descricao.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: Text(prova.descricao)),
-                if (datasTexto.isNotEmpty) Text(datasTexto, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4)),
-                Text('Peso: ${prova.peso.toStringAsFixed(1)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                if (prova.nota != null) Text('Nota: ${prova.nota}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
-              ],
-            ),
-            value: prova.realizada,
-            activeColor: const Color(0xFF4F46E5),
-            onChanged: (val) => atualizarStatusProva(index, val),
-            secondary: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (prova.documentoId != null)
-                  IconButton(
-                    icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
-                    onPressed: () => _verResumo(prova.documentoId!),
-                    tooltip: 'Ver Resumo',
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
-                    onPressed: () => _anexarPdf(prova),
-                    tooltip: 'Anexar PDF (IA)',
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red), 
-                  onPressed: () => deletarProva(index),
                 ),
               ],
             ),

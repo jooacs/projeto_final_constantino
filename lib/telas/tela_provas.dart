@@ -1,9 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/materia.dart';
 import '../models/prova.dart';
+import '../models/documento.dart';
 import '../services/materia_service.dart';
 import '../services/prova_service.dart';
 import '../services/nota_service.dart';
+import '../services/gemini_service.dart';
+import '../services/documento_service.dart';
 import 'tela_detalhes_prova.dart';
 
 class TelaProvas extends StatefulWidget {
@@ -18,17 +26,13 @@ class _TelaProvasState extends State<TelaProvas>
   final ProvaService _provaService = ProvaService();
   final NotaService _notaService = NotaService();
   final MateriaService _materiaService = MateriaService();
-
-  final _tituloController = TextEditingController();
-  final _descricaoController = TextEditingController();
-  final _pesoController = TextEditingController(text: '1.0');
+  final GeminiService _geminiService = GeminiService();
+  final DocumentoService _documentoService = DocumentoService();
 
   List<Prova> _provasPendentes = [];
   List<Prova> _provasRealizadas = [];
   List<Materia> _materias = [];
   bool _isLoading = true;
-  DateTime? _dataProva;
-  Materia? _materiaSelecionada;
   late TabController _tabController;
 
   @override
@@ -41,11 +45,10 @@ class _TelaProvasState extends State<TelaProvas>
   @override
   void dispose() {
     _tabController.dispose();
-    _tituloController.dispose();
-    _descricaoController.dispose();
-    _pesoController.dispose();
     super.dispose();
   }
+
+  // ── Carregamento ──────────────────────────────────────────────────────────
 
   Future<void> _carregarTodasProvas() async {
     setState(() => _isLoading = true);
@@ -86,43 +89,22 @@ class _TelaProvasState extends State<TelaProvas>
     }
   }
 
+  // ── Utilitários ───────────────────────────────────────────────────────────
+
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  (String, Color) _contageRegressiva(Prova prova) {
-    if (prova.dataProva == null) {
-      return ('Sem data definida', const Color(0xFF94A3B8));
-    }
-
-    final hoje = DateTime.now();
-    final hojeSemHora = DateTime(hoje.year, hoje.month, hoje.day);
-    final provaSemHora = DateTime(
-      prova.dataProva!.year,
-      prova.dataProva!.month,
-      prova.dataProva!.day,
-    );
-    final diff = provaSemHora.difference(hojeSemHora).inDays;
-
-    if (diff < 0) {
-      return ('Passou há ${-diff} dia(s)', const Color(0xFF94A3B8));
-    } else if (diff == 0) {
-      return ('🔥 HOJE!', const Color(0xFFEF4444));
-    } else if (diff == 1) {
-      return ('⚠️ Amanhã!', const Color(0xFFF59E0B));
-    } else if (diff <= 3) {
-      return ('⚠️ Em $diff dias', const Color(0xFFF59E0B));
-    } else if (diff <= 7) {
-      return ('📅 Em $diff dias', const Color(0xFF3B82F6));
-    } else {
-      return ('📅 Em $diff dias', const Color(0xFF10B981));
-    }
+  String? _nomeMateria(int idMateria) {
+    return _materias
+        .where((m) => m.id == idMateria)
+        .map((m) => m.nome)
+        .firstOrNull;
   }
 
   Color _corUrgencia(Prova prova) {
     if (prova.dataProva == null) return const Color(0xFF94A3B8);
-    final hoje = DateTime.now();
-    final diff = prova.dataProva!.difference(hoje).inDays;
+    final diff = prova.dataProva!.difference(DateTime.now()).inDays;
     if (diff < 0) return const Color(0xFF94A3B8);
     if (diff == 0) return const Color(0xFFEF4444);
     if (diff <= 1) return const Color(0xFFF59E0B);
@@ -130,261 +112,173 @@ class _TelaProvasState extends State<TelaProvas>
     return const Color(0xFF10B981);
   }
 
-  void _abrirDialogNovaProva() {
-    if (_materias.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Cadastre pelo menos uma matéria antes de adicionar uma prova.'),
-          backgroundColor: Color(0xFFF59E0B),
-        ),
-      );
-      return;
+  (String, Color) _contagemRegressiva(Prova prova) {
+    if (prova.dataProva == null) {
+      return ('Sem data definida', const Color(0xFF94A3B8));
     }
+    final hoje = DateTime.now();
+    final hojeSemHora = DateTime(hoje.year, hoje.month, hoje.day);
+    final provaSemHora = DateTime(
+        prova.dataProva!.year, prova.dataProva!.month, prova.dataProva!.day);
+    final diff = provaSemHora.difference(hojeSemHora).inDays;
 
-    _tituloController.clear();
-    _descricaoController.clear();
-    _pesoController.text = '1.0';
-    _dataProva = null;
-    _materiaSelecionada = _materias.first;
+    if (diff < 0) return ('Passou há ${-diff} dia(s)', const Color(0xFF94A3B8));
+    if (diff == 0) return ('🔥 HOJE!', const Color(0xFFEF4444));
+    if (diff == 1) return ('⚠️ Amanhã!', const Color(0xFFF59E0B));
+    if (diff <= 3) return ('⚠️ Em $diff dias', const Color(0xFFF59E0B));
+    if (diff <= 7) return ('📅 Em $diff dias', const Color(0xFF3B82F6));
+    return ('📅 Em $diff dias', const Color(0xFF10B981));
+  }
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (ctx, setDs) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Nova Prova',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+  // ── IA & PDF ──────────────────────────────────────────────────────────────
+
+  Future<void> _anexarPdf(Prova prova) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        _mostrarSucesso('Gerando resumo via IA, por favor aguarde...');
+
+        final summary =
+            await _geminiService.summarizePdf(result.files.single.bytes!);
+
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
+        final savedFile = File(path.join(appDir.path, fileName));
+        await savedFile.writeAsBytes(result.files.single.bytes!);
+
+        final novoDoc = Documento(
+          titulo: 'Resumo: ${prova.titulo}',
+          tipo: 'resumo',
+          caminho: savedFile.path,
+          nomeArquivo: result.files.single.name,
+          resumo: summary,
+          dataCriacao: DateTime.now().toIso8601String(),
+          idProva: prova.id,
+        );
+
+        final docId = await _documentoService.insertDocumento(novoDoc);
+        prova.documentoId = docId;
+        await _provaService.atualizarProva(prova);
+        await _carregarTodasProvas();
+        _mostrarSucesso('Resumo gerado e anexado com sucesso!');
+      }
+    } catch (e) {
+      _mostrarErro('Erro ao gerar resumo: $e');
+    }
+  }
+
+  Future<void> _verResumo(int docId) async {
+    try {
+      final docs = await _documentoService.getDocumentos();
+      final doc = docs.firstWhere((d) => d.id == docId);
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(doc.titulo),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Matéria
-                const Text('Matéria *',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B))),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<Materia>(
-                  value: _materiaSelecionada,
-                  items: _materias
-                      .map((m) => DropdownMenuItem(
-                            value: m,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: m.cor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(m.nome,
-                                      overflow: TextOverflow.ellipsis),
-                                ),
-                              ],
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setDs(() => _materiaSelecionada = v),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Título
-                TextField(
-                  controller: _tituloController,
-                  decoration: const InputDecoration(
-                    labelText: 'Título *',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Descrição
-                TextField(
-                  controller: _descricaoController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Descrição (opcional)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Data
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: const Text('Data da Prova',
-                      style: TextStyle(fontSize: 13)),
-                  subtitle: Text(
-                    _dataProva != null
-                        ? _formatDate(_dataProva!)
-                        : 'Toque para selecionar',
-                    style: const TextStyle(color: Color(0xFF4F46E5)),
-                  ),
-                  trailing: const Icon(Icons.event_rounded,
-                      size: 18, color: Color(0xFF4F46E5)),
-                  onTap: () async {
-                    final p = await showDatePicker(
-                      context: ctx,
-                      initialDate: _dataProva ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (p != null) setDs(() => _dataProva = p);
-                  },
-                ),
-                const SizedBox(height: 8),
-                // Peso
-                TextField(
-                  controller: _pesoController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Peso da avaliação',
-                    hintText: 'Ex: 1.0, 2.0...',
-                    helperText: 'Usado no cálculo da média ponderada',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-              ],
+            child: MarkdownBody(
+              data: doc.resumo ?? 'Sem resumo disponível.',
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(fontSize: 16, height: 1.5),
+                h1: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
-                  foregroundColor: Colors.white),
-              onPressed: () async {
-                if (_tituloController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(
-                        content: Text('Informe o título da prova.')),
-                  );
-                  return;
-                }
-                if (_materiaSelecionada == null) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Selecione uma matéria.')),
-                  );
-                  return;
-                }
-                final peso = double.tryParse(
-                        _pesoController.text.trim().replaceAll(',', '.')) ??
-                    1.0;
-                try {
-                  final prova = Prova(
-                    titulo: _tituloController.text.trim(),
-                    descricao: _descricaoController.text.trim(),
-                    realizada: false,
-                    idMateria: _materiaSelecionada!.id!,
-                    dataCriacao: DateTime.now(),
-                    dataProva: _dataProva,
-                    peso: peso,
-                  );
-                  await _provaService.inserirProva(prova);
-                  if (!mounted) return;
-                  Navigator.pop(ctx);
-                  await _carregarTodasProvas();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Prova adicionada!'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Erro ao salvar prova: $e')),
-                  );
-                }
-              },
-              child: const Text('Salvar'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
             ),
           ],
         ),
+      );
+    } catch (e) {
+      _mostrarErro('Erro ao abrir documento: $e');
+    }
+  }
+
+  // ── Ações sobre provas ────────────────────────────────────────────────────
+
+  Future<void> _deletarProva(Prova prova) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Remover prova?'),
+        content: Text('Deseja remover "${prova.titulo}"? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remover'),
+          ),
+        ],
       ),
     );
+    if (ok != true) return;
+
+    try {
+      await _provaService.removerProva(prova.id!);
+      if (prova.id != null) {
+        await _notaService.removerNotaDaProva(prova.id!);
+      }
+      await _carregarTodasProvas();
+      if (!mounted) return;
+      _mostrarSucesso('Prova removida!');
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro('Erro ao remover prova: $e');
+    }
   }
 
-  void _abrirDetalhes(Prova prova) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => TelaDetalhesProva(provaId: prova.id!)),
-    );
-    _carregarTodasProvas();
-  }
-
-  /// Ao marcar como realizada, pede a nota obtida e salva também na tabela de Notas
   Future<void> _marcarRealizada(Prova prova) async {
     if (!prova.realizada) {
-      // Vai marcar como realizada — pede a nota
       final nota = await _pedirNota(prova);
-      if (nota == null) return; // usuário cancelou
+      if (nota == null) return;
 
       try {
         prova.realizada = true;
         prova.nota = nota;
         await _provaService.atualizarProva(prova);
-
-        // Salva também em Notas para entrar nos cálculos de desempenho
         await _notaService.salvarNotaDaProva(prova, nota);
-
         await _carregarTodasProvas();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Prova concluída! Nota $nota registrada.'),
-            backgroundColor: const Color(0xFF10B981),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        _mostrarSucesso('✅ Prova concluída! Nota $nota registrada.');
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao atualizar prova: $e')),
-        );
+        _mostrarErro('Erro ao atualizar prova: $e');
       }
     } else {
-      // Reverter para pendente
       try {
         prova.realizada = false;
         prova.nota = null;
         await _provaService.atualizarProva(prova);
-        if (prova.id != null) {
-          await _notaService.removerNotaDaProva(prova.id!);
-        }
+        if (prova.id != null) await _notaService.removerNotaDaProva(prova.id!);
         await _carregarTodasProvas();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Prova marcada como pendente'),
             backgroundColor: Color(0xFF64748B),
-            duration: Duration(seconds: 2),
           ),
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao atualizar prova: $e')),
-        );
+        _mostrarErro('Erro ao atualizar prova: $e');
       }
     }
   }
@@ -418,22 +312,20 @@ class _TelaProvasState extends State<TelaProvas>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              prova.titulo,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: Color(0xFF1E293B)),
-            ),
+            Text(prova.titulo,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
             const SizedBox(height: 4),
-            Text(
-              'Peso da avaliação: ${prova.peso.toStringAsFixed(1)}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-            ),
+            Text('Peso da avaliação: ${prova.peso.toStringAsFixed(1)}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
             const SizedBox(height: 16),
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: '0.0 — 10.0',
@@ -463,8 +355,8 @@ class _TelaProvasState extends State<TelaProvas>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () {
               final valor =
@@ -487,6 +379,256 @@ class _TelaProvasState extends State<TelaProvas>
       ),
     );
   }
+
+  // ── Dialog Nova Prova ─────────────────────────────────────────────────────
+  // CORRIGIDO: todas as variáveis de estado do formulário são locais ao
+  // StatefulBuilder — elimina o bug onde o dialog não refletia mudanças.
+
+  void _abrirDialogNovaProva() {
+  if (_materias.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Cadastre pelo menos uma matéria antes de adicionar uma prova.',
+        ),
+        backgroundColor: Color(0xFFF59E0B),
+      ),
+    );
+    return;
+  }
+
+  final tituloCtrl = TextEditingController();
+  final descricaoCtrl = TextEditingController();
+  final pesoCtrl = TextEditingController(text: '1.0');
+
+  DateTime? dataProva;
+  Materia materiaSelecionada = _materias.first;
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Nova Prova',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    DropdownButtonFormField<Materia>(
+                      value: materiaSelecionada,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Matéria',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _materias.map((materia) {
+                        return DropdownMenuItem<Materia>(
+                          value: materia,
+                          child: Text(
+                            materia.nome,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (materia) {
+                        if (materia != null) {
+                          setDialogState(() {
+                            materiaSelecionada = materia;
+                          });
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: tituloCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome da prova',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: descricaoCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição (opcional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: pesoCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Peso',
+                        hintText: 'Ex: 1.0, 2.0, 3.0',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    InkWell(
+                      onTap: () async {
+                        final data = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: dataProva ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+
+                        if (data != null) {
+                          setDialogState(() {
+                            dataProva = data;
+                          });
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Data da prova',
+                          border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.calendar_month),
+                        ),
+                        child: Text(
+                          dataProva == null
+                              ? 'Selecionar data'
+                              : _formatDate(dataProva!),
+                          style: TextStyle(
+                            color: dataProva == null
+                                ? Colors.grey
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Cancelar'),
+              ),
+
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  if (tituloCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Informe o nome da prova.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final peso = double.tryParse(
+                    pesoCtrl.text.trim().replaceAll(',', '.'),
+                  );
+
+                  if (peso == null || peso <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Informe um peso válido.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final prova = Prova(
+                      titulo: tituloCtrl.text.trim(),
+                      descricao: descricaoCtrl.text.trim(),
+                      realizada: false,
+                      idMateria: materiaSelecionada.id!,
+                      dataCriacao: DateTime.now(),
+                      dataProva: dataProva,
+                      peso: peso,
+                    );
+
+                    await _provaService.inserirProva(prova);
+
+                    if (!mounted) return;
+
+                    Navigator.pop(dialogContext);
+
+                    await _carregarTodasProvas();
+
+                    if (!mounted) return;
+
+                    _mostrarSucesso('Prova adicionada!');
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erro ao salvar prova: $e'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+  void _abrirDetalhes(Prova prova) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => TelaDetalhesProva(provaId: prova.id!)),
+    );
+    _carregarTodasProvas();
+  }
+
+  // ── Feedback ──────────────────────────────────────────────────────────────
+
+  void _mostrarErro(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.red),
+    );
+  }
+
+  void _mostrarSucesso(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.green),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -531,6 +673,8 @@ class _TelaProvasState extends State<TelaProvas>
     );
   }
 
+  // ── Listas ────────────────────────────────────────────────────────────────
+
   Widget _buildListaPendentes() {
     if (_provasPendentes.isEmpty) {
       return Center(
@@ -571,9 +715,8 @@ class _TelaProvasState extends State<TelaProvas>
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: _provasPendentes.length,
-        itemBuilder: (context, index) {
-          return _buildCardPendente(_provasPendentes[index]);
-        },
+        itemBuilder: (context, index) =>
+            _buildCardProva(_provasPendentes[index]),
       ),
     );
   }
@@ -603,186 +746,129 @@ class _TelaProvasState extends State<TelaProvas>
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         itemCount: _provasRealizadas.length,
-        itemBuilder: (context, index) {
-          return _buildCardRealizada(_provasRealizadas[index]);
-        },
+        itemBuilder: (context, index) =>
+            _buildCardProva(_provasRealizadas[index]),
       ),
     );
   }
 
-  Widget _buildCardPendente(Prova prova) {
-    final (textoContagem, corContagem) = _contageRegressiva(prova);
+  // ── Card unificado (igual ao da tela de matérias) ─────────────────────────
+
+  Widget _buildCardProva(Prova prova) {
+    final nomMateria = _nomeMateria(prova.idMateria);
     final corUrgencia = _corUrgencia(prova);
+    final (textoContagem, corContagem) = _contagemRegressiva(prova);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: corUrgencia.withValues(alpha: 0.3), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        side: prova.realizada
+            ? BorderSide.none
+            : BorderSide(
+                color: corUrgencia.withValues(alpha: 0.25), width: 1.5),
       ),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _abrirDetalhes(prova),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              activeColor: const Color(0xFF4F46E5),
+              value: prova.realizada,
+              onChanged: (_) => _marcarRealizada(prova),
+              title: Text(
+                prova.titulo,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  decoration:
+                      prova.realizada ? TextDecoration.lineThrough : null,
+                  color: prova.realizada
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF1E293B),
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: corUrgencia.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
+                  if (prova.descricao.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 2),
+                      child: Text(
+                        prova.descricao,
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF64748B)),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.assignment_late_rounded,
-                      color: corUrgencia,
-                      size: 22,
+                  if (nomMateria != null)
+                    Text(
+                      nomMateria,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF4F46E5),
+                          fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          prova.titulo,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        if (prova.descricao.isNotEmpty)
-                          Text(
-                            prova.descricao,
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.check_circle_outline_rounded,
-                        color: Color(0xFF10B981)),
-                    tooltip: 'Marcar como realizada',
-                    onPressed: () => _marcarRealizada(prova),
-                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              secondary: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (prova.dataProva != null)
-                    _buildChip(
-                      '📅 ${_formatDate(prova.dataProva!)}',
-                      const Color(0xFF64748B),
+                  // PDF / Resumo
+                  if (prova.documentoId != null)
+                    IconButton(
+                      icon: const Icon(Icons.description,
+                          color: Color(0xFF8B5CF6)),
+                      onPressed: () => _verResumo(prova.documentoId!),
+                      tooltip: 'Ver Resumo',
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf,
+                          color: Color(0xFF64748B)),
+                      onPressed: () => _anexarPdf(prova),
+                      tooltip: 'Anexar PDF (IA)',
                     ),
-                  _buildChip(textoContagem, corContagem),
-                  _buildChip('Peso ${prova.peso.toStringAsFixed(1)}',
-                      const Color(0xFF8B5CF6)),
-                  TextButton.icon(
+                  // Detalhes
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new_rounded,
+                        color: Color(0xFF4F46E5), size: 20),
                     onPressed: () => _abrirDetalhes(prova),
-                    icon: const Icon(Icons.visibility_rounded, size: 14),
-                    label: const Text('Detalhes', style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF4F46E5),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                    ),
+                    tooltip: 'Ver detalhes',
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCardRealizada(Prova prova) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 1,
-      color: const Color(0xFFF8FAFC),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _abrirDetalhes(prova),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.verified_rounded,
-                      color: Color(0xFF10B981),
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          prova.titulo,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Color(0xFF475569),
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        if (prova.descricao.isNotEmpty)
-                          Text(
-                            prova.descricao,
-                            style: const TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
+                  // Deletar
                   IconButton(
-                    icon: const Icon(Icons.undo_rounded,
-                        color: Color(0xFF94A3B8)),
-                    tooltip: 'Marcar como pendente',
-                    onPressed: () => _marcarRealizada(prova),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () => _deletarProva(prova),
+                    tooltip: 'Remover prova',
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Wrap(
+            ),
+            // Chips de informação
+            Padding(
+              padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
+              child: Wrap(
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  if (prova.dataProva != null)
+                  if (!prova.realizada) ...[
+                    if (prova.dataProva != null)
+                      _buildChip(
+                        '📅 ${_formatDate(prova.dataProva!)}',
+                        const Color(0xFF64748B),
+                      ),
+                    _buildChip(textoContagem, corContagem),
+                  ],
+                  if (prova.realizada && prova.dataProva != null)
                     _buildChip(
                       '📅 ${_formatDate(prova.dataProva!)}',
                       const Color(0xFF94A3B8),
                     ),
+                  _buildChip('Peso ${prova.peso.toStringAsFixed(1)}',
+                      const Color(0xFF8B5CF6)),
                   if (prova.nota != null)
                     _buildChip(
                       '🏆 Nota: ${prova.nota!.toStringAsFixed(1)}',
@@ -790,34 +876,41 @@ class _TelaProvasState extends State<TelaProvas>
                           ? const Color(0xFF10B981)
                           : const Color(0xFFEF4444),
                     ),
-                  if (prova.nota == null)
+                  if (prova.realizada && prova.nota == null)
                     _buildChip('Sem nota registrada', const Color(0xFF94A3B8)),
-                  _buildChip('Peso ${prova.peso.toStringAsFixed(1)}',
-                      const Color(0xFF8B5CF6)),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildChip(String texto, Color cor) {
+  Widget _buildChip(String texto, Color cor, {IconData? icone}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: cor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cor.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        texto,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: cor,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icone != null) ...[
+            Icon(icone, size: 12, color: cor),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            texto,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cor,
+            ),
+          ),
+        ],
       ),
     );
   }
