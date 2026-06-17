@@ -350,7 +350,7 @@ class _TelaGeradorQuizState extends State<TelaGeradorQuiz> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<Materia>(
-                            value: _selectedMateriaCreate,
+                            initialValue: _selectedMateriaCreate,
                             decoration: InputDecoration(
                               labelText: 'Matéria (opcional)',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -358,7 +358,7 @@ class _TelaGeradorQuizState extends State<TelaGeradorQuiz> {
                             ),
                             items: [
                               const DropdownMenuItem<Materia>(value: null, child: Text('Nenhuma')),
-                              ..._materias.map((m) => DropdownMenuItem(value: m, child: Text(m.nome))).toList(),
+                              ..._materias.map((m) => DropdownMenuItem(value: m, child: Text(m.nome))),
                             ],
                             onChanged: (val) => setState(() => _selectedMateriaCreate = val),
                             isExpanded: true,
@@ -367,7 +367,7 @@ class _TelaGeradorQuizState extends State<TelaGeradorQuiz> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<Tarefa>(
-                            value: _selectedTarefaCreate,
+                            initialValue: _selectedTarefaCreate,
                             decoration: InputDecoration(
                               labelText: 'Tarefa (opcional)',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -375,7 +375,7 @@ class _TelaGeradorQuizState extends State<TelaGeradorQuiz> {
                             ),
                             items: [
                               const DropdownMenuItem<Tarefa>(value: null, child: Text('Nenhuma')),
-                              ..._tarefas.map((t) => DropdownMenuItem(value: t, child: Text(t.titulo))).toList(),
+                              ..._tarefas.map((t) => DropdownMenuItem(value: t, child: Text(t.titulo))),
                             ],
                             onChanged: (val) => setState(() => _selectedTarefaCreate = val),
                             isExpanded: true,

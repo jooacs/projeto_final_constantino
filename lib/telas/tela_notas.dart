@@ -322,7 +322,6 @@ class _TelaNotasState extends State<TelaNotas>
   }
 
   Widget _buildHeroCard(double media) {
-    final cor = _corNota(media == 0 ? 0 : media);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
       decoration: BoxDecoration(
@@ -1335,7 +1334,7 @@ class _TelaNotasState extends State<TelaNotas>
                         color: Color(0xFF64748B))),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<_Desempenho>(
-                  value: materiaSel,
+                  initialValue: materiaSel,
                   items: _desempenhos
                       .map((d) => DropdownMenuItem(
                             value: d,
@@ -1402,7 +1401,7 @@ class _TelaNotasState extends State<TelaNotas>
                         color: Color(0xFF64748B))),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: tipoSel,
+                  initialValue: tipoSel,
                   items: const [
                     DropdownMenuItem(value: 'prova', child: Text('Prova')),
                     DropdownMenuItem(
@@ -1485,7 +1484,7 @@ class _TelaNotasState extends State<TelaNotas>
 
                 try {
                   await _notaService.inserirNota(nota);
-                  if (!mounted) return;
+                  if (!ctx.mounted) return;
                   Navigator.pop(ctx);
                   _mostrarSucesso('Nota adicionada!');
                   _carregar();
@@ -1682,7 +1681,7 @@ class _DetalhesMateriaNotaState extends State<_DetalhesMateriaNota> {
                       controller: scroll,
                       padding: const EdgeInsets.all(20),
                       itemCount: d.notasOrdenadas.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const SizedBox(height: 8),
                       itemBuilder: (ctx, i) {
                         final nota = d.notasOrdenadas[i];

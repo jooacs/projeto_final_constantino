@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -136,6 +135,7 @@ class _TelaQuestoesState extends State<TelaQuestoes> {
       try {
         final file = File(doc.caminho);
         if (!await file.exists()) {
+          if (!mounted) return;
           Navigator.pop(context); // fecha loading
           _mostrarErro('Arquivo PDF não encontrado no dispositivo.');
           return;
@@ -148,9 +148,8 @@ class _TelaQuestoesState extends State<TelaQuestoes> {
         doc.questoes = jsonEncode(questoes.map((q) => q.toJson()).toList());
         await _documentoService.updateDocumento(doc);
 
-        Navigator.pop(context); // fecha loading
-
         if (!mounted) return;
+        Navigator.pop(context); // fecha loading
 
         await Navigator.push(
           context,
@@ -165,6 +164,7 @@ class _TelaQuestoesState extends State<TelaQuestoes> {
         _carregarDados(); // Atualiza a tela
 
       } catch (e) {
+        if (!mounted) return;
         Navigator.pop(context); // fecha loading
         _mostrarErro('Erro ao extrair questões: $e');
       }

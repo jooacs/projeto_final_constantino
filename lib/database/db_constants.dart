@@ -2,6 +2,7 @@
 ///
 /// Centraliza todas as constantes relacionadas ao banco de dados
 /// para evitar repetição e facilitar manutenção
+library;
 
 // ============= COLUNA COMUM (MULTI-USUÁRIO) =============
 const String colIdUsuario = 'id_usuario';

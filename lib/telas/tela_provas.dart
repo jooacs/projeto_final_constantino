@@ -169,7 +169,7 @@ class _TelaProvasState extends State<TelaProvas>
                         color: Color(0xFF64748B))),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<Materia>(
-                  value: _materiaSelecionada,
+                  initialValue: _materiaSelecionada,
                   items: _materias
                       .map((m) => DropdownMenuItem(
                             value: m,
@@ -311,6 +311,7 @@ class _TelaProvasState extends State<TelaProvas>
                     ),
                   );
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     SnackBar(content: Text('Erro ao salvar prova: $e')),
                   );

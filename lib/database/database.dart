@@ -2,6 +2,7 @@
 ///
 /// Exporta todos os componentes da pasta database
 /// Facilita importações: 'import "database/database.dart"'
+library;
 
 export 'database_helper.dart';
 export 'db_constants.dart';

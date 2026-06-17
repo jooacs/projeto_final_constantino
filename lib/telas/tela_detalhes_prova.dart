@@ -208,7 +208,7 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                         color: Color(0xFF64748B))),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _prioridadeTarefa,
+                  initialValue: _prioridadeTarefa,
                   items: const [
                     DropdownMenuItem(
                         value: prioridadeBaixa, child: Text('Baixa')),
@@ -312,6 +312,7 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                   if (!mounted) return;
                   Navigator.pop(ctx);
                   await _carregar();
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Tarefa adicionada!'),
@@ -319,6 +320,7 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                     ),
                   );
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     SnackBar(content: Text('Erro: $e')),
                   );

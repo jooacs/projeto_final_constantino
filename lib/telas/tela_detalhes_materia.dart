@@ -654,7 +654,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: _prioridadeTarefa,
+                      initialValue: _prioridadeTarefa,
                       items: const [
                         DropdownMenuItem(
                           value: prioridadeBaixa,
@@ -698,8 +698,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(() => _dataCriacaoTarefa = picked);
+                        }
                       },
                     ),
                     ListTile(
@@ -718,8 +719,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(() => _dataEntregaTarefa = picked);
+                        }
                       },
                     ),
                     const SizedBox(height: 16),
@@ -777,7 +779,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<Prova?>(
-                        value: _provaVinculadaTarefa,
+                        initialValue: _provaVinculadaTarefa,
                         items: [
                           const DropdownMenuItem<Prova?>(
                             value: null,
@@ -874,8 +876,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setDialogState(() => _dataProva = picked);
+                        }
                       },
                     ),
                     const SizedBox(height: 10),
@@ -1023,8 +1026,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
   }
 
   Widget _buildListaTarefas() {
-    if (_isLoadingTarefas)
+    if (_isLoadingTarefas) {
       return const Center(child: CircularProgressIndicator());
+    }
     if (tarefas.isEmpty) {
       return const Center(
         child: Text(
@@ -1146,8 +1150,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
   }
 
   Widget _buildListaProvas() {
-    if (_isLoadingProvas)
+    if (_isLoadingProvas) {
       return const Center(child: CircularProgressIndicator());
+    }
     if (provas.isEmpty) {
       return const Center(
         child: Text(
@@ -1162,8 +1167,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
       itemBuilder: (context, index) {
         final prova = provas[index];
         String datasTexto = '';
-        if (prova.dataProva != null)
+        if (prova.dataProva != null) {
           datasTexto += 'Data da Prova: ${_formatDate(prova.dataProva!)}';
+        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),

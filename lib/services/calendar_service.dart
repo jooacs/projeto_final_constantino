@@ -13,10 +13,7 @@ class CalendarService {
       final googleSignIn = _authService.googleSignIn;
       // Precisamos garantir que o usuário está autenticado via Google no dispositivo.
       var currentUser = googleSignIn.currentUser;
-      if (currentUser == null) {
-        // Tenta recuperar a sessão silenciosamente caso exista
-        currentUser = await googleSignIn.signInSilently();
-      }
+      currentUser ??= await googleSignIn.signInSilently();
 
       if (currentUser == null) {
         if (kDebugMode) {

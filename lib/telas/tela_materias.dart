@@ -167,6 +167,8 @@ class _TelaMateriasState extends State<TelaMaterias> {
       if (!mounted) return;
 
       await carregarMaterias();
+      
+      if (!mounted) return;
       nomeController.clear();
       professorController.clear();
 
@@ -226,6 +228,8 @@ class _TelaMateriasState extends State<TelaMaterias> {
                       if (!mounted) return;
 
                       await carregarMaterias();
+
+                      if (!mounted) return;
                       nomeController.clear();
                       professorController.clear();
 

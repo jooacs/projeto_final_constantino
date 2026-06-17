@@ -9,18 +9,40 @@ import 'telas/tela_login.dart';
 import 'telas/tela_inicial.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  if (kDebugMode) {
-    await FirebaseAuth.instance.setSettings(
-      appVerificationDisabledForTesting: true,
-    );
+    if (kDebugMode) {
+      await FirebaseAuth.instance.setSettings(
+        appVerificationDisabledForTesting: true,
+      );
+    }
+
+    try {
+      await dotenv.load(fileName: '.env');
+    } catch (e) {
+      debugPrint('Aviso: Arquivo .env não encontrado ou erro ao carregar ($e).');
+    }
+    runApp(const MyApp());
+  } catch (e) {
+    debugPrint('Erro crítico na inicialização: $e');
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Erro de inicialização do app:\n\n$e\n\nVerifique o console para mais detalhes.',
+              style: const TextStyle(color: Colors.red, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    ));
   }
-
-  await dotenv.load(fileName: '.env');
-  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {

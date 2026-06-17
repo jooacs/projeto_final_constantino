@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen>
   // Estado do dashboard
   bool _isLoading = true;
   int _totalMaterias = 0;
-  int _totalTarefas = 0;
   int _tarefasPendentes = 0;
   int _tarefasConcluidas = 0;
   String? _proximaProva;
@@ -152,9 +151,6 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
       setState(() {
         _totalMaterias = (stats['total_materias'] as int?) ?? 0;
-        _totalTarefas =
-            ((stats['tarefas_pendentes'] as int?) ?? 0) +
-                ((stats['tarefas_concluidas'] as int?) ?? 0);
         _tarefasPendentes = (stats['tarefas_pendentes'] as int?) ?? 0;
         _tarefasConcluidas = (stats['tarefas_concluidas'] as int?) ?? 0;
         _proximaProva = textoProva;
