@@ -9,8 +9,6 @@ class DatabaseHelper {
   static const String _dbName = 'studyflow.db';
   static const int _dbVersion = 11; // v11: vincula notas geradas por provas
 
-<<<<<<< HEAD
-=======
   // Tabelas
   static const String tableMateria = 'materia';
   static const String tableTarefa = 'tarefa';
@@ -81,8 +79,6 @@ class DatabaseHelper {
   static const String colNotaTipo = 'tipo';
   static const String colNotaData = 'data';
   static const String colNotaIdProva = 'id_prova';
-
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
   DatabaseHelper._init();
 
   Future<Database> get database async {

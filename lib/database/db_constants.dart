@@ -80,16 +80,6 @@ const String colNotaTipo = 'tipo';
 const String colNotaData = 'data';
 const String colNotaIdProva = 'id_prova';
 
-// ============= TABELA NOTA =============
-const String tableNota = 'nota';
-const String colNotaId = 'id';
-const String colNotaIdMateria = 'id_materia';
-const String colNotaDescricao = 'descricao';
-const String colNotaValor = 'valor';
-const String colNotaPeso = 'peso';
-const String colNotaTipo = 'tipo';
-const String colNotaData = 'data';
-
 // ============= VALORES PADRÃO =============
 const String statusMateriaAtiva = 'ativa';
 const String statusMateriaInativa = 'inativa';

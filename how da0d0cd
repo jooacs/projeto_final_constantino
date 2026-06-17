@@ -1,0 +1,23 @@
+[33mc8567ed[m[33m ([m[1;32mmain[m[33m)[m Resolvendo pendencias
+[33m12c4270[m Resolvendo pendencias
+[33m623d8ef[m Resolvendo pendencias do git
+[33m7db0e84[m Adicionando tela de Questões e ajustes
+[33md0eecb2[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Concertando relações entre telas e itens cadastrados nelas.
+[33m0f445d6[m[33m ([m[1;31morigin/Magno[m[33m)[m Concertando relações entre telas e itens cadastrados nelas
+[33me166c32[m Tela Notas implementada
+[33m2936555[m Tela Notas implementada
+[33m70d7235[m Adiciona login Google e isolamento de dados por usuario
+[33m985f9c5[m Adiciona login Google e isolamento de dados por usuario
+[33m49e8061[m Adiciona cadastro e login com Firebase Auth
+[33m79f125c[m Adiciona cadastro e login com Firebase Auth
+[33mb1a8225[m[33m ([m[1;36mHEAD[m[33m)[m Adiconando entrada de arquivos em pfd
+[33m9b69ba2[m Adicionando funções envolvendo relações e concção basica com a api gemini para resumos
+[33mda0d0cd[m[33m ([m[1;32mjohnny[m[33m)[m Fazendo alguns ajustes e colocando o .env para as chaves de API utiliizadas e algumas dependencias
+[33m785504d[m Persistência de Matéria e Tarefa e telas básicas
+[33mf17034e[m Merge branch 'Magno'
+[33mce6ddc4[m Implementa persistencia de Tarefa
+[33m19d036f[m Session ce175e27-cd13-4041-b040-bbdaca794ecb - checkpoint turn 0
+[33m0ab823e[m Adicionando um layout basico
+[33md09d0db[m Implementa persistencia de materias com SqLite
+[33mf9cf8ba[m add telas básicas
+[33m1ccf291[m[33m ([m[1;31morigin/Johnny[m[33m, [m[1;32magents/gerenciamento-estudos-app-uploads[m[33m)[m Primeiro commit

@@ -29,7 +29,6 @@ class DocumentoService {
     return List.generate(maps.length, (i) => Documento.fromMap(maps[i]));
   }
 
-<<<<<<< HEAD
   Future<int> updateDocumento(Documento documento) async {
     final uid = AuthService.currentUserId;
     if (uid == null) throw Exception('Usuário não autenticado');
@@ -41,8 +40,9 @@ class DocumentoService {
       where: '$colDocumentoId = ? AND $colIdUsuario = ?',
       whereArgs: [documento.id, uid],
     );
-=======
-  /// Busca todos os documentos (resumos/quizzes) vinculados a uma prova específica
+  }
+
+  /// Busca todos os documentos vinculados a uma prova específica.
   Future<List<Documento>> buscarPorProva(int idProva) async {
     final uid = AuthService.currentUserId;
     if (uid == null) return [];
@@ -50,12 +50,11 @@ class DocumentoService {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableDocumento,
-      where: 'id_prova = ? AND $colIdUsuario = ?',
+      where: '$colDocumentoIdProva = ? AND $colIdUsuario = ?',
       whereArgs: [idProva, uid],
       orderBy: '$colDocumentoDataCriacao DESC',
     );
     return List.generate(maps.length, (i) => Documento.fromMap(maps[i]));
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
   }
 
   Future<int> deleteDocumento(int id) async {

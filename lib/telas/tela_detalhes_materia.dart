@@ -24,7 +24,8 @@ class TelaDetalhesMateria extends StatefulWidget {
   State<TelaDetalhesMateria> createState() => _TelaDetalhesMateriaState();
 }
 
-class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTickerProviderStateMixin {
+class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   final TarefaService tarefaService = TarefaService();
@@ -38,10 +39,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   DateTime? _dataCriacaoTarefa;
   DateTime? _dataEntregaTarefa;
   String _prioridadeTarefa = prioridadeMedia;
-<<<<<<< HEAD
-=======
-  Prova? _provaVinculadaTarefa; // NOVO: vincula a tarefa criada a uma prova
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
+  Prova? _provaVinculadaTarefa; // vincula a tarefa criada a uma prova
 
   // Controladores para Prova
   final tituloProvaController = TextEditingController();
@@ -71,14 +69,18 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   }
 
   // ================= IA & PDF =================
-  
+
   Future<void> _processarAnexo(dynamic item, PlatformFile file) async {
     final summary = await geminiService.summarizePdf(file.bytes!);
-    
+
     final appDir = await getApplicationDocumentsDirectory();
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
     final savedFile = File(path.join(appDir.path, fileName));
     await savedFile.writeAsBytes(file.bytes!);
+
+    final int? idProvaVinculada = item is Prova
+        ? item.id
+        : (item is Tarefa ? item.idProva : null);
 
     final novoDoc = Documento(
       titulo: 'Anexo: ${item.titulo}',
@@ -87,6 +89,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       nomeArquivo: file.name,
       resumo: summary,
       dataCriacao: DateTime.now().toIso8601String(),
+      idProva: idProvaVinculada,
     );
 
     final docId = await documentoService.insertDocumento(novoDoc);
@@ -110,39 +113,14 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
 
       if (result != null && result.files.single.bytes != null) {
         _mostrarSucesso('Gerando resumo via IA, por favor aguarde...');
-        
-<<<<<<< HEAD
         await _processarAnexo(item, result.files.single);
-=======
-        final summary = await geminiService.summarizePdf(result.files.single.bytes!);
-        
-        final appDir = await getApplicationDocumentsDirectory();
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
-        final savedFile = File(path.join(appDir.path, fileName));
-        await savedFile.writeAsBytes(result.files.single.bytes!);
-
-        // Se o item for uma Prova, vincula o resumo a ela (id_prova)
-        final int? idProvaVinculada = item is Prova ? item.id : null;
-
-        final novoDoc = Documento(
-          titulo: 'Resumo: ${item.titulo}',
-          tipo: 'resumo',
-          caminho: savedFile.path,
-          nomeArquivo: result.files.single.name,
-          resumo: summary,
-          dataCriacao: DateTime.now().toIso8601String(),
-          idProva: idProvaVinculada,
-        );
-
-        final docId = await documentoService.insertDocumento(novoDoc);
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
 
         if (item is Tarefa) {
           await carregarTarefas();
         } else if (item is Prova) {
           await carregarProvas();
         }
-        
+
         _mostrarSucesso('PDF anexado e resumido com sucesso!');
       }
     } catch (e) {
@@ -238,7 +216,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _mostrarErro('Preencha o título da tarefa');
       return;
     }
-    
+
     // Armazena o PDF selecionado localmente e fecha o dialog
     final pdfSelecionado = _pdfAnexoSelecionado;
     Navigator.pop(context);
@@ -254,7 +232,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         prioridade: _prioridadeTarefa,
         idProva: _provaVinculadaTarefa?.id,
       );
-      
+
       final idTarefa = await tarefaService.inserirTarefa(tarefa);
       tarefa.id = idTarefa;
 
@@ -272,11 +250,8 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _dataCriacaoTarefa = null;
       _dataEntregaTarefa = null;
       _prioridadeTarefa = prioridadeMedia;
-<<<<<<< HEAD
       _pdfAnexoSelecionado = null;
-=======
       _provaVinculadaTarefa = null;
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
       await carregarTarefas();
     } catch (e) {
       if (mounted) _mostrarErro('Erro ao adicionar tarefa: $e');
@@ -324,21 +299,19 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       _mostrarErro('Preencha o título da prova');
       return;
     }
-<<<<<<< HEAD
 
     // Armazena o PDF selecionado localmente e fecha o dialog
     final pdfSelecionado = _pdfAnexoSelecionado;
     Navigator.pop(context);
 
-=======
-    final peso = double.tryParse(
-            pesoProvaController.text.trim().replaceAll(',', '.')) ??
+    final peso =
+        double.tryParse(pesoProvaController.text.trim().replaceAll(',', '.')) ??
         1.0;
     if (peso <= 0) {
       _mostrarErro('O peso deve ser maior que zero');
       return;
     }
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
+
     try {
       final prova = Prova(
         titulo: tituloProvaController.text.trim(),
@@ -350,7 +323,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         nota: double.tryParse(notaProvaController.text),
         peso: peso,
       );
-      
+
       final idProva = await provaService.inserirProva(prova);
       prova.id = idProva;
 
@@ -422,22 +395,30 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Qual foi a sua nota?',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Qual foi a sua nota?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(prova.titulo,
-                style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              prova.titulo,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 4),
-            Text('Peso: ${prova.peso.toStringAsFixed(1)}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              'Peso: ${prova.peso.toStringAsFixed(1)}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               decoration: InputDecoration(
@@ -458,12 +439,18 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+            ),
             onPressed: () {
-              final valor = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+              final valor = double.tryParse(
+                ctrl.text.trim().replaceAll(',', '.'),
+              );
               if (valor == null || valor < 0 || valor > 10) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Informe uma nota entre 0 e 10.')),
+                  const SnackBar(
+                    content: Text('Informe uma nota entre 0 e 10.'),
+                  ),
                 );
                 return;
               }
@@ -508,7 +495,10 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Deletar', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Deletar',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -609,11 +599,15 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   }
 
   void _mostrarErro(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+    );
   }
 
   void _mostrarSucesso(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensagem), backgroundColor: Colors.green));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.green),
+    );
   }
 
   // ================= DIALOGS =================
@@ -623,12 +617,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
     descricaoTarefaController.clear();
     _dataCriacaoTarefa = DateTime.now();
     _dataEntregaTarefa = null;
-<<<<<<< HEAD
     _pdfAnexoSelecionado = null;
-=======
     _provaVinculadaTarefa = null;
     _prioridadeTarefa = prioridadeMedia;
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
 
     showDialog(
       context: context,
@@ -642,24 +633,51 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(controller: tituloTarefaController, decoration: const InputDecoration(labelText: 'Título')),
+                    TextField(
+                      controller: tituloTarefaController,
+                      decoration: const InputDecoration(labelText: 'Título'),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: descricaoTarefaController, maxLines: 3, decoration: const InputDecoration(labelText: 'Descrição')),
+                    TextField(
+                      controller: descricaoTarefaController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Descrição'),
+                    ),
                     const SizedBox(height: 16),
-                    const Text('Prioridade',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    const Text(
+                      'Prioridade',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: _prioridadeTarefa,
                       items: const [
-                        DropdownMenuItem(value: prioridadeBaixa, child: Text('🟢  Baixa')),
-                        DropdownMenuItem(value: prioridadeMedia, child: Text('🟡  Média')),
-                        DropdownMenuItem(value: prioridadeAlta,  child: Text('🔴  Alta')),
+                        DropdownMenuItem(
+                          value: prioridadeBaixa,
+                          child: Text('🟢  Baixa'),
+                        ),
+                        DropdownMenuItem(
+                          value: prioridadeMedia,
+                          child: Text('🟡  Média'),
+                        ),
+                        DropdownMenuItem(
+                          value: prioridadeAlta,
+                          child: Text('🔴  Alta'),
+                        ),
                       ],
-                      onChanged: (v) => setDialogState(() => _prioridadeTarefa = v ?? prioridadeMedia),
+                      onChanged: (v) => setDialogState(
+                        () => _prioridadeTarefa = v ?? prioridadeMedia,
+                      ),
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         isDense: true,
                       ),
                     ),
@@ -667,24 +685,43 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Data de Criação'),
-                      subtitle: Text(_dataCriacaoTarefa != null ? _formatDate(_dataCriacaoTarefa!) : 'Selecionar'),
+                      subtitle: Text(
+                        _dataCriacaoTarefa != null
+                            ? _formatDate(_dataCriacaoTarefa!)
+                            : 'Selecionar',
+                      ),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataCriacaoTarefa ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataCriacaoTarefa = picked);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _dataCriacaoTarefa ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null)
+                          setDialogState(() => _dataCriacaoTarefa = picked);
                       },
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Data de Entrega'),
-                      subtitle: Text(_dataEntregaTarefa != null ? _formatDate(_dataEntregaTarefa!) : 'Sem prazo'),
+                      subtitle: Text(
+                        _dataEntregaTarefa != null
+                            ? _formatDate(_dataEntregaTarefa!)
+                            : 'Sem prazo',
+                      ),
                       trailing: const Icon(Icons.event),
                       onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataEntregaTarefa ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataEntregaTarefa = picked);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _dataEntregaTarefa ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null)
+                          setDialogState(() => _dataEntregaTarefa = picked);
                       },
                     ),
-<<<<<<< HEAD
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: () async {
@@ -693,29 +730,51 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                           allowedExtensions: ['pdf'],
                           withData: true,
                         );
-                        if (result != null && result.files.single.bytes != null) {
+                        if (result != null &&
+                            result.files.single.bytes != null) {
                           setDialogState(() {
                             _pdfAnexoSelecionado = result.files.single;
                           });
                         }
                       },
-                      icon: Icon(_pdfAnexoSelecionado != null ? Icons.check_circle : Icons.picture_as_pdf, color: _pdfAnexoSelecionado != null ? Colors.green : null),
+                      icon: Icon(
+                        _pdfAnexoSelecionado != null
+                            ? Icons.check_circle
+                            : Icons.picture_as_pdf,
+                        color: _pdfAnexoSelecionado != null
+                            ? Colors.green
+                            : null,
+                      ),
                       label: Text(
-                        _pdfAnexoSelecionado != null ? 'PDF: ${_pdfAnexoSelecionado!.name}' : 'Anexar PDF (Opcional)',
+                        _pdfAnexoSelecionado != null
+                            ? 'PDF: ${_pdfAnexoSelecionado!.name}'
+                            : 'Anexar PDF (Opcional)',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        side: BorderSide(color: _pdfAnexoSelecionado != null ? Colors.green : Colors.grey),
-                        alignment: Alignment.centerLeft
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        side: BorderSide(
+                          color: _pdfAnexoSelecionado != null
+                              ? Colors.green
+                              : Colors.grey,
+                        ),
+                        alignment: Alignment.centerLeft,
                       ),
                     ),
-=======
                     const SizedBox(height: 10),
                     if (provas.isNotEmpty) ...[
-                      const Text('Vincular a uma prova (opcional)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                      const Text(
+                        'Vincular a uma prova (opcional)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<Prova?>(
                         value: _provaVinculadaTarefa,
@@ -724,29 +783,43 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                             value: null,
                             child: Text('Nenhuma'),
                           ),
-                          ...provas.map((p) => DropdownMenuItem<Prova?>(
-                                value: p,
-                                child: Text(p.titulo, overflow: TextOverflow.ellipsis),
-                              )),
+                          ...provas.map(
+                            (p) => DropdownMenuItem<Prova?>(
+                              value: p,
+                              child: Text(
+                                p.titulo,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
                         ],
-                        onChanged: (v) => setDialogState(() => _provaVinculadaTarefa = v),
+                        onChanged: (v) =>
+                            setDialogState(() => _provaVinculadaTarefa = v),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           isDense: true,
                         ),
                       ),
                     ],
->>>>>>> d0eecb2bc4e35bdc331f6b3043eb41990fc1b8ae
                   ],
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                ElevatedButton(onPressed: adicionarTarefa, child: const Text('Salvar')),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: adicionarTarefa,
+                  child: const Text('Salvar'),
+                ),
               ],
             );
-          }
+          },
         );
       },
     );
@@ -772,24 +845,45 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(controller: tituloProvaController, decoration: const InputDecoration(labelText: 'Título')),
+                    TextField(
+                      controller: tituloProvaController,
+                      decoration: const InputDecoration(labelText: 'Título'),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: descricaoProvaController, maxLines: 3, decoration: const InputDecoration(labelText: 'Descrição (opcional)')),
+                    TextField(
+                      controller: descricaoProvaController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição (opcional)',
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Data da Prova'),
-                      subtitle: Text(_dataProva != null ? _formatDate(_dataProva!) : 'Sem data definida'),
+                      subtitle: Text(
+                        _dataProva != null
+                            ? _formatDate(_dataProva!)
+                            : 'Sem data definida',
+                      ),
                       trailing: const Icon(Icons.event),
                       onTap: () async {
-                        final picked = await showDatePicker(context: context, initialDate: _dataProva ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
-                        if (picked != null) setDialogState(() => _dataProva = picked);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _dataProva ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null)
+                          setDialogState(() => _dataProva = picked);
                       },
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: pesoProvaController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Peso da avaliação',
                         hintText: 'Ex: 1.0, 2.0...',
@@ -804,33 +898,56 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                           allowedExtensions: ['pdf'],
                           withData: true,
                         );
-                        if (result != null && result.files.single.bytes != null) {
+                        if (result != null &&
+                            result.files.single.bytes != null) {
                           setDialogState(() {
                             _pdfAnexoSelecionado = result.files.single;
                           });
                         }
                       },
-                      icon: Icon(_pdfAnexoSelecionado != null ? Icons.check_circle : Icons.picture_as_pdf, color: _pdfAnexoSelecionado != null ? Colors.green : null),
+                      icon: Icon(
+                        _pdfAnexoSelecionado != null
+                            ? Icons.check_circle
+                            : Icons.picture_as_pdf,
+                        color: _pdfAnexoSelecionado != null
+                            ? Colors.green
+                            : null,
+                      ),
                       label: Text(
-                        _pdfAnexoSelecionado != null ? 'PDF: ${_pdfAnexoSelecionado!.name}' : 'Anexar PDF (Opcional)',
+                        _pdfAnexoSelecionado != null
+                            ? 'PDF: ${_pdfAnexoSelecionado!.name}'
+                            : 'Anexar PDF (Opcional)',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        side: BorderSide(color: _pdfAnexoSelecionado != null ? Colors.green : Colors.grey),
-                        alignment: Alignment.centerLeft
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        side: BorderSide(
+                          color: _pdfAnexoSelecionado != null
+                              ? Colors.green
+                              : Colors.grey,
+                        ),
+                        alignment: Alignment.centerLeft,
                       ),
                     ),
                   ],
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                ElevatedButton(onPressed: adicionarProva, child: const Text('Salvar')),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: adicionarProva,
+                  child: const Text('Salvar'),
+                ),
               ],
             );
-          }
+          },
         );
       },
     );
@@ -862,13 +979,18 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
             padding: const EdgeInsets.all(16),
             child: Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: widget.materia.cor,
                   child: const Icon(Icons.menu_book, color: Colors.white),
                 ),
-                title: Text(widget.materia.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  widget.materia.nome,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Text(widget.materia.professor),
               ),
             ),
@@ -876,10 +998,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildListaTarefas(),
-                _buildListaProvas(),
-              ],
+              children: [_buildListaTarefas(), _buildListaProvas()],
             ),
           ),
         ],
@@ -894,15 +1013,25 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
         },
         backgroundColor: const Color(0xFF4F46E5),
         foregroundColor: Colors.white,
-        child: Icon(_tabController.index == 0 ? Icons.add_task_rounded : Icons.post_add_rounded),
+        child: Icon(
+          _tabController.index == 0
+              ? Icons.add_task_rounded
+              : Icons.post_add_rounded,
+        ),
       ),
     );
   }
 
   Widget _buildListaTarefas() {
-    if (_isLoadingTarefas) return const Center(child: CircularProgressIndicator());
+    if (_isLoadingTarefas)
+      return const Center(child: CircularProgressIndicator());
     if (tarefas.isEmpty) {
-      return const Center(child: Text('Nenhuma tarefa cadastrada. Clique no +', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text(
+          'Nenhuma tarefa cadastrada. Clique no +',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -915,7 +1044,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Column(
@@ -927,7 +1058,9 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     tarefa.titulo,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      decoration: tarefa.concluida ? TextDecoration.lineThrough : null,
+                      decoration: tarefa.concluida
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                   subtitle: tarefa.descricao.isNotEmpty
@@ -944,18 +1077,27 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
                     children: [
                       if (tarefa.documentoId != null)
                         IconButton(
-                          icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                          icon: const Icon(
+                            Icons.description,
+                            color: Color(0xFF8B5CF6),
+                          ),
                           onPressed: () => _verResumo(tarefa.documentoId!),
                           tooltip: 'Ver Resumo',
                         )
                       else
                         IconButton(
-                          icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                          icon: const Icon(
+                            Icons.picture_as_pdf,
+                            color: Color(0xFF64748B),
+                          ),
                           onPressed: () => _anexarPdf(tarefa),
                           tooltip: 'Anexar PDF (IA)',
                         ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
                         onPressed: () => deletarTarefa(index),
                       ),
                     ],
@@ -1004,9 +1146,15 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
   }
 
   Widget _buildListaProvas() {
-    if (_isLoadingProvas) return const Center(child: CircularProgressIndicator());
+    if (_isLoadingProvas)
+      return const Center(child: CircularProgressIndicator());
     if (provas.isEmpty) {
-      return const Center(child: Text('Nenhuma prova cadastrada. Clique no +', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text(
+          'Nenhuma prova cadastrada. Clique no +',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1014,20 +1162,51 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
       itemBuilder: (context, index) {
         final prova = provas[index];
         String datasTexto = '';
-        if (prova.dataProva != null) datasTexto += 'Data da Prova: ${_formatDate(prova.dataProva!)}';
+        if (prova.dataProva != null)
+          datasTexto += 'Data da Prova: ${_formatDate(prova.dataProva!)}';
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: CheckboxListTile(
-            title: Text(prova.titulo, style: TextStyle(fontWeight: FontWeight.bold, decoration: prova.realizada ? TextDecoration.lineThrough : null)),
+            title: Text(
+              prova.titulo,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                decoration: prova.realizada ? TextDecoration.lineThrough : null,
+              ),
+            ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (prova.descricao.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: Text(prova.descricao)),
-                if (datasTexto.isNotEmpty) Text(datasTexto, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4)),
-                Text('Peso: ${prova.peso.toStringAsFixed(1)}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                if (prova.nota != null) Text('Nota: ${prova.nota}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
+                if (prova.descricao.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text(prova.descricao),
+                  ),
+                if (datasTexto.isNotEmpty)
+                  Text(
+                    datasTexto,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                    ),
+                  ),
+                Text(
+                  'Peso: ${prova.peso.toStringAsFixed(1)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                if (prova.nota != null)
+                  Text(
+                    'Nota: ${prova.nota}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4F46E5),
+                    ),
+                  ),
               ],
             ),
             value: prova.realizada,
@@ -1038,18 +1217,24 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> with SingleTi
               children: [
                 if (prova.documentoId != null)
                   IconButton(
-                    icon: const Icon(Icons.description, color: Color(0xFF8B5CF6)),
+                    icon: const Icon(
+                      Icons.description,
+                      color: Color(0xFF8B5CF6),
+                    ),
                     onPressed: () => _verResumo(prova.documentoId!),
                     tooltip: 'Ver Resumo',
                   )
                 else
                   IconButton(
-                    icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF64748B)),
+                    icon: const Icon(
+                      Icons.picture_as_pdf,
+                      color: Color(0xFF64748B),
+                    ),
                     onPressed: () => _anexarPdf(prova),
                     tooltip: 'Anexar PDF (IA)',
                   ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red), 
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () => deletarProva(index),
                 ),
               ],
