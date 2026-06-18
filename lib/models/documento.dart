@@ -12,6 +12,7 @@ class Documento {
   String dataCriacao;
   int? idProva; // NOVO: vincula o resumo/quiz a uma prova específica
   String? idUsuario;
+  int? idTarefa;
 
   Documento({
     this.id,
@@ -25,6 +26,7 @@ class Documento {
     required this.dataCriacao,
     this.idProva,
     this.idUsuario,
+    this.idTarefa,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,6 +42,7 @@ class Documento {
       colDocumentoDataCriacao: dataCriacao,
       'id_prova': idProva,
       colIdUsuario: idUsuario,
+      'id_tarefa': idTarefa,
     };
   }
 
@@ -56,6 +59,7 @@ class Documento {
       dataCriacao: map[colDocumentoDataCriacao],
       idProva: map['id_prova'] as int?,
       idUsuario: map[colIdUsuario] as String?,
+      idTarefa: map['id_tarefa'] as int?,
     );
   }
 }

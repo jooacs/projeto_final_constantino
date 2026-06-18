@@ -39,7 +39,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
   Prova? _provaVinculadaTarefa; // vincula a tarefa criada a uma prova
 
   // Arquivo PDF opcional selecionado na criação
-  PlatformFile? _pdfAnexoSelecionado;
+  List<PlatformFile> _pdfsAnexosSelecionados = [];
 
   List<Tarefa> tarefas = [];
   List<Prova> provas = [];
@@ -132,6 +132,125 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
     }
   }
 
+  Future<void> _salvarPdfNaTarefa(Tarefa tarefa, PlatformFile file) async {
+    if (tarefa.id == null || file.bytes == null) return;
+
+    final appDir = await getApplicationDocumentsDirectory();
+
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+    final savedFile = File(path.join(appDir.path, fileName));
+
+    await savedFile.writeAsBytes(file.bytes!);
+
+    final documento = Documento(
+      titulo: file.name.replaceAll('.pdf', ''),
+      tipo: 'pdf',
+      caminho: savedFile.path,
+      nomeArquivo: file.name,
+      resumo: null,
+      dataCriacao: DateTime.now().toIso8601String(),
+      idTarefa: tarefa.id,
+      idProva: tarefa.idProva,
+    );
+
+    final docId = await documentoService.insertDocumento(documento);
+
+    // Mantém compatibilidade com telas antigas que usam documentoId
+    tarefa.documentoId ??= docId;
+  }
+
+  Future<void> _anexarPdfsNaTarefa(Tarefa tarefa) async {
+    if (tarefa.id == null) return;
+
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      for (final file in result.files) {
+        await _salvarPdfNaTarefa(tarefa, file);
+      }
+
+      await tarefaService.atualizarTarefa(tarefa);
+
+      if (!mounted) return;
+
+      await carregarTarefas();
+
+      if (!mounted) return;
+
+      _mostrarSucesso('PDF(s) anexado(s) com sucesso!');
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro('Erro ao anexar PDFs: $e');
+    }
+  }
+
+  Future<void> _verPdfsDaTarefa(Tarefa tarefa) async {
+    if (tarefa.id == null) return;
+
+    try {
+      final docs = await documentoService.buscarPorTarefa(tarefa.id!);
+
+      if (!mounted) return;
+
+      if (docs.isEmpty) {
+        _mostrarErro('Essa tarefa ainda não possui PDFs.');
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        showDragHandle: true,
+        builder: (ctx) {
+          return SafeArea(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: docs.length,
+              separatorBuilder: (_, __) => const Divider(),
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+
+                return ListTile(
+                  leading: const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: Colors.red,
+                  ),
+                  title: Text(
+                    doc.nomeArquivo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(doc.titulo),
+                  trailing: const Icon(Icons.open_in_new_rounded),
+                  onTap: () async {
+                    final arquivo = File(doc.caminho);
+
+                    if (!await arquivo.exists()) {
+                      if (!mounted) return;
+                      _mostrarErro('Arquivo não encontrado no dispositivo.');
+                      return;
+                    }
+
+                    await OpenFilex.open(doc.caminho);
+                  },
+                );
+              },
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro('Erro ao abrir PDFs: $e');
+    }
+  }
+
   Future<void> _verResumo(int docId) async {
     try {
       final docs = await documentoService.getDocumentos();
@@ -199,7 +318,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
     }
 
     // Armazena o PDF selecionado localmente e fecha o dialog
-    final pdfSelecionado = _pdfAnexoSelecionado;
+    final pdfsSelecionados = List<PlatformFile>.from(_pdfsAnexosSelecionados);
     Navigator.pop(context);
 
     try {
@@ -217,10 +336,16 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
       final idTarefa = await tarefaService.inserirTarefa(tarefa);
       tarefa.id = idTarefa;
 
-      if (pdfSelecionado != null) {
-        _mostrarSucesso('Salvando tarefa e lendo PDF, aguarde...');
-        await _processarAnexo(tarefa, pdfSelecionado);
-        _mostrarSucesso('Tarefa e anexo adicionados com sucesso!');
+      if (pdfsSelecionados.isNotEmpty) {
+        _mostrarSucesso('Salvando tarefa e PDF(s), aguarde...');
+
+        for (final file in pdfsSelecionados) {
+          await _salvarPdfNaTarefa(tarefa, file);
+        }
+
+        await tarefaService.atualizarTarefa(tarefa);
+
+        _mostrarSucesso('Tarefa e PDF(s) adicionados com sucesso!');
       } else {
         _mostrarSucesso('Tarefa adicionada com sucesso!');
       }
@@ -231,7 +356,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
       _dataCriacaoTarefa = null;
       _dataEntregaTarefa = null;
       _prioridadeTarefa = prioridadeMedia;
-      _pdfAnexoSelecionado = null;
+      _pdfsAnexosSelecionados = [];
       _provaVinculadaTarefa = null;
       await carregarTarefas();
     } catch (e) {
@@ -418,7 +543,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
     descricaoTarefaController.clear();
     _dataCriacaoTarefa = DateTime.now();
     _dataEntregaTarefa = null;
-    _pdfAnexoSelecionado = null;
+    _pdfsAnexosSelecionados = [];
     _provaVinculadaTarefa = null;
     _prioridadeTarefa = prioridadeMedia;
 
@@ -528,30 +653,33 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: () async {
-                        FilePickerResult? result = await FilePicker.pickFiles(
+                        final result = await FilePicker.pickFiles(
                           type: FileType.custom,
                           allowedExtensions: ['pdf'],
+                          allowMultiple: true,
                           withData: true,
                         );
-                        if (result != null &&
-                            result.files.single.bytes != null) {
+
+                        if (result != null && result.files.isNotEmpty) {
                           setDialogState(() {
-                            _pdfAnexoSelecionado = result.files.single;
+                            _pdfsAnexosSelecionados = result.files
+                                .where((file) => file.bytes != null)
+                                .toList();
                           });
                         }
                       },
                       icon: Icon(
-                        _pdfAnexoSelecionado != null
+                        _pdfsAnexosSelecionados.isNotEmpty
                             ? Icons.check_circle
                             : Icons.picture_as_pdf,
-                        color: _pdfAnexoSelecionado != null
+                        color: _pdfsAnexosSelecionados.isNotEmpty
                             ? Colors.green
                             : null,
                       ),
                       label: Text(
-                        _pdfAnexoSelecionado != null
-                            ? 'PDF: ${_pdfAnexoSelecionado!.name}'
-                            : 'Anexar PDF (Opcional)',
+                        _pdfsAnexosSelecionados.isNotEmpty
+                            ? '${_pdfsAnexosSelecionados.length} PDF(s) selecionado(s)'
+                            : 'Anexar PDF(s) opcional',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -561,7 +689,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
                           horizontal: 16,
                         ),
                         side: BorderSide(
-                          color: _pdfAnexoSelecionado != null
+                          color: _pdfsAnexosSelecionados.isNotEmpty
                               ? Colors.green
                               : Colors.grey,
                         ),
@@ -748,41 +876,27 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
                   value: tarefa.concluida,
                   activeColor: const Color(0xFF4F46E5),
                   onChanged: (val) => atualizarStatusTarefa(index, val),
-                  secondary: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (tarefa.documentoId != null) ...[
-                        IconButton(
-                          icon: const Icon(
-                            Icons.description,
-                            color: Color(0xFF8B5CF6),
-                          ),
-                          onPressed: () => _verResumo(tarefa.documentoId!),
-                          tooltip: 'Ver Resumo',
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.red,
-                          ),
-                          onPressed: () => _abrirPdf(tarefa.documentoId!),
-                          tooltip: 'Abrir PDF',
-                        ),
-                      ] else
-                        IconButton(
-                          icon: const Icon(
-                            Icons.picture_as_pdf,
-                            color: Color(0xFF64748B),
-                          ),
-                          onPressed: () => _anexarPdf(tarefa),
-                          tooltip: 'Anexar PDF (IA)',
-                        ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                        ),
-                        onPressed: () => deletarTarefa(index),
+                  secondary: PopupMenuButton<String>(
+                    tooltip: 'Opções',
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onSelected: (value) {
+                      if (value == 'pdfs') {
+                        _verPdfsDaTarefa(tarefa);
+                      } else if (value == 'add_pdf') {
+                        _anexarPdfsNaTarefa(tarefa);
+                      } else if (value == 'delete') {
+                        deletarTarefa(index);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'pdfs', child: Text('Ver PDFs')),
+                      PopupMenuItem(
+                        value: 'add_pdf',
+                        child: Text('Adicionar PDF'),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Remover tarefa'),
                       ),
                     ],
                   ),

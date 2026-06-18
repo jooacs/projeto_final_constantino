@@ -7,7 +7,7 @@ class DatabaseHelper {
   static Database? _database;
 
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 12; // v11: vincula notas geradas por provas
+  static const int _dbVersion = 13; // v11: vincula notas geradas por provas
 
   // Tabelas
   static const String tableMateria = 'materia';
@@ -41,6 +41,7 @@ class DatabaseHelper {
   static const String colTarefaIdDocumento = 'id_documento';
   static const String colTarefaIdProva = 'id_prova';
   static const String colTarefaPrioridade = 'prioridade';
+  static const String colDocumentoIdTarefa = 'id_tarefa';
 
   // Prova
   static const String colProvaId = 'id';
@@ -165,7 +166,8 @@ class DatabaseHelper {
           $colDocumentoErro TEXT,
           $colDocumentoDataCriacao TEXT NOT NULL,
           $colDocumentoIdProva INTEGER,
-          $colIdUsuario TEXT
+          $colIdUsuario TEXT,
+          $colDocumentoIdTarefa INTEGER
         )
       ''');
 
@@ -237,6 +239,7 @@ class DatabaseHelper {
   /// Garante que TODAS as colunas existam — protege bancos de dados antigos
   Future<void> _ensureAllColumnsExist(Database db) async {
     // Tarefa
+    await _addColIfMissing(db, tableDocumento, colDocumentoIdTarefa, 'INTEGER');
     await _addColIfMissing(db, tableTarefa, colTarefaIdDocumento, 'INTEGER');
     await _addColIfMissing(db, tableTarefa, colTarefaIdProva, 'INTEGER');
     await _addColIfMissing(db, tableTarefa, colTarefaDataCriacao, 'TEXT');
@@ -437,6 +440,15 @@ class DatabaseHelper {
 
       if (oldVersion < 12) {
         await _addColIfMissing(db, tableMateria, colMateriaIcone, 'INTEGER');
+      }
+
+      if (oldVersion < 13) {
+        await _addColIfMissing(
+          db,
+          tableDocumento,
+          colDocumentoIdTarefa,
+          'INTEGER',
+        );
       }
 
       // Sempre garante os índices

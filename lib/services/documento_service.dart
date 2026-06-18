@@ -42,6 +42,19 @@ class DocumentoService {
     );
   }
 
+  Future<List<Documento>> buscarPorTarefa(int idTarefa) async {
+    final db = await DatabaseHelper.instance.database;
+
+    final result = await db.query(
+      'documento',
+      where: 'id_tarefa = ?',
+      whereArgs: [idTarefa],
+      orderBy: 'data_criacao DESC',
+    );
+
+    return result.map((e) => Documento.fromMap(e)).toList();
+  }
+
   /// Busca todos os documentos vinculados a uma prova específica.
   Future<List<Documento>> buscarPorProva(int idProva) async {
     final uid = AuthService.currentUserId;
