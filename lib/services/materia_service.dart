@@ -89,6 +89,9 @@ class MateriaService {
       final uid = AuthService.currentUserId;
       if (uid == null) throw Exception('Usuário não autenticado');
 
+      // Garante que o id do usuário está no objeto antes de converter para Map
+      materia.idUsuario = uid;
+
       final db = await DatabaseHelper.instance.database;
       return await db.update(
         'materia',
@@ -113,9 +116,21 @@ class MateriaService {
       if (uid == null) throw Exception('Usuário não autenticado');
 
       final db = await DatabaseHelper.instance.database;
-      await db.delete('tarefa', where: 'id_materia = ? AND id_usuario = ?', whereArgs: [id, uid]);
-      await db.delete('prova', where: 'id_materia = ? AND id_usuario = ?', whereArgs: [id, uid]);
-      return await db.delete('materia', where: 'id = ? AND id_usuario = ?', whereArgs: [id, uid]);
+      await db.delete(
+        'tarefa',
+        where: 'id_materia = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
+      await db.delete(
+        'prova',
+        where: 'id_materia = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
+      return await db.delete(
+        'materia',
+        where: 'id = ? AND id_usuario = ?',
+        whereArgs: [id, uid],
+      );
     } catch (e) {
       throw Exception('Erro ao remover matéria: $e');
     }

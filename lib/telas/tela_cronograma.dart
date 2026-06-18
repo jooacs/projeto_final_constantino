@@ -49,24 +49,28 @@ class _TelaCronogramaState extends State<TelaCronograma> {
 
       for (var t in tarefas) {
         final date = t.dataEntrega ?? t.dataCriacao ?? DateTime.now();
-        events.add(TimelineEvent(
-          date: date,
-          title: t.titulo,
-          description: t.descricao,
-          type: 'tarefa',
-          isCompleted: t.concluida,
-        ));
+        events.add(
+          TimelineEvent(
+            date: date,
+            title: t.titulo,
+            description: t.descricao,
+            type: 'tarefa',
+            isCompleted: t.concluida,
+          ),
+        );
       }
 
       for (var p in provas) {
         final date = p.dataProva ?? p.dataCriacao ?? DateTime.now();
-        events.add(TimelineEvent(
-          date: date,
-          title: p.titulo,
-          description: p.descricao,
-          type: 'prova',
-          isCompleted: p.realizada,
-        ));
+        events.add(
+          TimelineEvent(
+            date: date,
+            title: p.titulo,
+            description: p.descricao,
+            type: 'prova',
+            isCompleted: p.realizada,
+          ),
+        );
       }
 
       events.sort((a, b) => a.date.compareTo(b.date));
@@ -91,6 +95,10 @@ class _TelaCronogramaState extends State<TelaCronograma> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  String _formatDateTime(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} às ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,37 +111,34 @@ class _TelaCronogramaState extends State<TelaCronograma> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _events.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhum evento (tarefa ou prova) cadastrado.',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                )
-              : Stack(
-                  children: [
-                    // Linha central fixa para simular o mapa mental / timeline
-                    Positioned(
-                      left: MediaQuery.of(context).size.width / 2 - 1,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 2,
-                        color: Colors.grey.shade300,
-                      ),
-                    ),
-                    // Lista de eventos
-                    ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      itemCount: _events.length,
-                      itemBuilder: (context, index) {
-                        final event = _events[index];
-                        final bool isLeft = index % 2 == 0;
-                        return _buildTimelineRow(event, isLeft);
-                      },
-                    ),
-                  ],
+          ? const Center(
+              child: Text(
+                'Nenhum evento (tarefa ou prova) cadastrado.',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            )
+          : Stack(
+              children: [
+                // Linha central fixa para simular o mapa mental / timeline
+                Positioned(
+                  left: MediaQuery.of(context).size.width / 2 - 1,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(width: 2, color: Colors.grey.shade300),
                 ),
+                // Lista de eventos
+                ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  itemCount: _events.length,
+                  itemBuilder: (context, index) {
+                    final event = _events[index];
+                    final bool isLeft = index % 2 == 0;
+                    return _buildTimelineRow(event, isLeft);
+                  },
+                ),
+              ],
+            ),
     );
   }
 
@@ -141,10 +146,10 @@ class _TelaCronogramaState extends State<TelaCronograma> {
     final card = _buildEventCard(event);
     final emptyHalf = Expanded(child: const SizedBox());
     final isProva = event.type == 'prova';
-    
+
     // Cor do nó baseada no tipo e se foi concluída
-    final dotColor = event.isCompleted 
-        ? Colors.grey.shade400 
+    final dotColor = event.isCompleted
+        ? Colors.grey.shade400
         : (isProva ? const Color(0xFFEF4444) : const Color(0xFF10B981));
 
     return Padding(
@@ -153,16 +158,16 @@ class _TelaCronogramaState extends State<TelaCronograma> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (isLeft) 
+          if (isLeft)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(left: 16.0, right: 16.0),
                 child: card,
               ),
-            ) 
-          else 
+            )
+          else
             emptyHalf,
-          
+
           // Nó central
           Container(
             width: 16,
@@ -172,22 +177,19 @@ class _TelaCronogramaState extends State<TelaCronograma> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                )
+                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4),
               ],
             ),
           ),
 
-          if (!isLeft) 
+          if (!isLeft)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(left: 16.0, right: 16.0),
                 child: card,
               ),
-            ) 
-          else 
+            )
+          else
             emptyHalf,
         ],
       ),
@@ -196,7 +198,9 @@ class _TelaCronogramaState extends State<TelaCronograma> {
 
   Widget _buildEventCard(TimelineEvent event) {
     final isProva = event.type == 'prova';
-    final cardColor = isProva ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+    final cardColor = isProva
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF10B981);
     final opacityColor = event.isCompleted ? Colors.grey.shade400 : cardColor;
 
     return Container(
@@ -220,14 +224,16 @@ class _TelaCronogramaState extends State<TelaCronograma> {
             Row(
               children: [
                 Icon(
-                  isProva ? Icons.assignment_late_rounded : Icons.task_alt_rounded,
+                  isProva
+                      ? Icons.assignment_late_rounded
+                      : Icons.task_alt_rounded,
                   size: 16,
                   color: opacityColor,
                 ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    _formatDate(event.date),
+                    _formatDateTime(event.date),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -243,8 +249,12 @@ class _TelaCronogramaState extends State<TelaCronograma> {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: event.isCompleted ? Colors.grey : const Color(0xFF334155),
-                decoration: event.isCompleted ? TextDecoration.lineThrough : null,
+                color: event.isCompleted
+                    ? Colors.grey
+                    : const Color(0xFF334155),
+                decoration: event.isCompleted
+                    ? TextDecoration.lineThrough
+                    : null,
               ),
             ),
             if (event.description.isNotEmpty) ...[
@@ -255,7 +265,7 @@ class _TelaCronogramaState extends State<TelaCronograma> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-            ]
+            ],
           ],
         ),
       ),

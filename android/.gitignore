@@ -12,3 +12,4 @@ lib/firebase_options.dart
 key.properties
 **/*.keystore
 **/*.jks
+*.hprof

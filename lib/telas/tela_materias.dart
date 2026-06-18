@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/materia.dart';
 import '../services/materia_service.dart';
+import '../services/auth_service.dart';
 import 'tela_detalhes_materia.dart';
 
 class TelaMaterias extends StatefulWidget {
@@ -21,7 +22,7 @@ class _TelaMateriasState extends State<TelaMaterias> {
   String? _errorMessage;
 
   final MateriaService materiaService = MateriaService();
-  
+
   // Lista de ícones disponíveis
   final List<IconData> _iconesDisponiveis = [
     Icons.menu_book,
@@ -126,16 +127,22 @@ class _TelaMateriasState extends State<TelaMaterias> {
                 onTap: () => onIconSelected(icon),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.2) : null,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor.withOpacity(0.2)
+                        : null,
                     border: Border.all(
-                      color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade300,
                       width: isSelected ? 2 : 1,
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade600,
                   ),
                 ),
               );
@@ -147,10 +154,19 @@ class _TelaMateriasState extends State<TelaMaterias> {
   }
 
   // CREATE
-  Future<void> adicionarMateria(IconData? selectedIcon) async {
+  Future<void> adicionarMateria(
+    BuildContext dialogContext,
+    IconData? selectedIcon,
+  ) async {
     if (nomeController.text.trim().isEmpty ||
         professorController.text.trim().isEmpty) {
       _mostrarErro('Preencha todos os campos');
+      return;
+    }
+
+    final uid = AuthService.currentUserId;
+    if (uid == null) {
+      _mostrarErro('Usuário não autenticado. Faça o login novamente.');
       return;
     }
 
@@ -167,12 +183,12 @@ class _TelaMateriasState extends State<TelaMaterias> {
       if (!mounted) return;
 
       await carregarMaterias();
-      
+
       if (!mounted) return;
       nomeController.clear();
       professorController.clear();
 
-      Navigator.pop(context);
+      Navigator.pop(dialogContext);
       _mostrarSucesso('Matéria adicionada com sucesso!');
     } catch (e) {
       if (!mounted) return;
@@ -220,7 +236,8 @@ class _TelaMateriasState extends State<TelaMaterias> {
 
                     try {
                       materias[index].nome = nomeController.text.trim();
-                      materias[index].professor = professorController.text.trim();
+                      materias[index].professor = professorController.text
+                          .trim();
                       materias[index].icone = currentIcon;
 
                       await materiaService.atualizarMateria(materias[index]);
@@ -244,7 +261,7 @@ class _TelaMateriasState extends State<TelaMaterias> {
                 ),
               ],
             );
-          }
+          },
         );
       },
     );
@@ -322,12 +339,12 @@ class _TelaMateriasState extends State<TelaMaterias> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () => adicionarMateria(currentIcon),
+                  onPressed: () => adicionarMateria(context, currentIcon),
                   child: const Text('Adicionar'),
                 ),
               ],
             );
-          }
+          },
         );
       },
     );
@@ -421,7 +438,10 @@ class _TelaMateriasState extends State<TelaMaterias> {
                   ),
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -437,7 +457,7 @@ class _TelaMateriasState extends State<TelaMaterias> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        materia.icone ?? Icons.menu_book, 
+                        materia.icone ?? Icons.menu_book,
                         color: materia.cor,
                         size: 28,
                       ),
@@ -453,7 +473,11 @@ class _TelaMateriasState extends State<TelaMaterias> {
                       padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.person_outline,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             materia.professor,
@@ -473,7 +497,10 @@ class _TelaMateriasState extends State<TelaMaterias> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
                           onPressed: () {
                             removerMateria(index);
                           },
