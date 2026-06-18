@@ -55,11 +55,14 @@ class _TelaQuizState extends State<TelaQuiz> {
     if (widget.documento != null) {
       int acertos = 0;
       int erros = 0;
+      List<int> indicesErros = [];
+      
       for (int i = 0; i < widget.questoes.length; i++) {
         if (_respostasSelecionadas[i] == widget.questoes[i].indiceRespostaCorreta) {
           acertos++;
         } else {
           erros++;
+          indicesErros.add(i);
         }
       }
 
@@ -72,6 +75,7 @@ class _TelaQuizState extends State<TelaQuiz> {
 
       respostasData['acertos'] = acertos;
       respostasData['erros'] = erros;
+      respostasData['indicesErros'] = indicesErros;
 
       widget.documento!.respostas = jsonEncode(respostasData);
       

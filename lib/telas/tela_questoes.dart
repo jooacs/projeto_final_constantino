@@ -15,6 +15,7 @@ import '../services/documento_service.dart';
 import '../services/gemini_service.dart';
 
 import 'tela_quiz.dart';
+import 'tela_estatisticas_questoes.dart';
 
 class TelaQuestoes extends StatefulWidget {
   const TelaQuestoes({super.key});
@@ -203,6 +204,18 @@ class _TelaQuestoesState extends State<TelaQuestoes> {
       appBar: AppBar(
         title: const Text('Questões Extras'),
         backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'Estatísticas',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TelaEstatisticasQuestoes()),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
