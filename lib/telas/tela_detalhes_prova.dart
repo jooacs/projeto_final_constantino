@@ -78,9 +78,9 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar detalhes: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao carregar detalhes: $e')));
     }
   }
 
@@ -130,9 +130,9 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
       await _carregar();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar tarefa: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao atualizar tarefa: $e')));
     }
   }
 
@@ -144,13 +144,13 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         content: Text('Remover "${tarefa.titulo}" desta prova?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Remover', style: TextStyle(color: Colors.white)),
+            child: const Text('Remover', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -172,10 +172,13 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (ctx, setDs) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Nova Tarefa',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Nova Tarefa',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -201,28 +204,39 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                 ),
                 const SizedBox(height: 12),
                 // Prioridade
-                const Text('Prioridade',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B))),
+                const Text(
+                  'Prioridade',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: _prioridadeTarefa,
                   items: const [
                     DropdownMenuItem(
-                        value: prioridadeBaixa, child: Text('Baixa')),
+                      value: prioridadeBaixa,
+                      child: Text('Baixa'),
+                    ),
                     DropdownMenuItem(
-                        value: prioridadeMedia, child: Text('Média')),
+                      value: prioridadeMedia,
+                      child: Text('Média'),
+                    ),
                     DropdownMenuItem(
-                        value: prioridadeAlta, child: Text('Alta')),
+                      value: prioridadeAlta,
+                      child: Text('Alta'),
+                    ),
                   ],
                   onChanged: (v) =>
                       setDs(() => _prioridadeTarefa = v ?? prioridadeMedia),
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     isDense: true,
                   ),
                 ),
@@ -231,16 +245,21 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  title: const Text('Data de entrega (opcional)',
-                      style: TextStyle(fontSize: 13)),
+                  title: const Text(
+                    'Data de entrega (opcional)',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   subtitle: Text(
                     _dataEntregaTarefa != null
                         ? _formatDate(_dataEntregaTarefa!)
                         : 'Toque para selecionar',
                     style: const TextStyle(color: Color(0xFF4F46E5)),
                   ),
-                  trailing: const Icon(Icons.calendar_today_rounded,
-                      size: 18, color: Color(0xFF4F46E5)),
+                  trailing: const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 18,
+                    color: Color(0xFF4F46E5),
+                  ),
                   onTap: () async {
                     final p = await showDatePicker(
                       context: ctx,
@@ -253,8 +272,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                 ),
                 // Chip indicando vinculação automática
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(8),
@@ -262,16 +283,20 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.link_rounded,
-                          size: 14, color: Color(0xFF4F46E5)),
+                      const Icon(
+                        Icons.link_rounded,
+                        size: 14,
+                        color: Color(0xFF4F46E5),
+                      ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Vinculada à prova: ${prova.titulo}',
                           style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF4F46E5),
-                              fontWeight: FontWeight.w600),
+                            fontSize: 11,
+                            color: Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -287,13 +312,15 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                  foregroundColor: Colors.white),
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
                 if (_tituloTarefaCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     const SnackBar(
-                        content: Text('Informe o título da tarefa.')),
+                      content: Text('Informe o título da tarefa.'),
+                    ),
                   );
                   return;
                 }
@@ -321,9 +348,9 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                   );
                 } catch (e) {
                   if (!mounted) return;
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Erro: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    ctx,
+                  ).showSnackBar(SnackBar(content: Text('Erro: $e')));
                 }
               },
               child: const Text('Salvar'),
@@ -359,9 +386,9 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     } else {
       try {
@@ -379,9 +406,9 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     }
   }
@@ -401,13 +428,18 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                 color: const Color(0xFF10B981).withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.emoji_events_rounded,
-                  color: Color(0xFF10B981), size: 20),
+              child: const Icon(
+                Icons.emoji_events_rounded,
+                color: Color(0xFF10B981),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             const Expanded(
-              child: Text('Qual foi a sua nota?',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              child: Text(
+                'Qual foi a sua nota?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
             ),
           ],
         ),
@@ -415,21 +447,26 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(prova.titulo,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+            Text(
+              prova.titulo,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('Peso da avaliação: ${prova.peso.toStringAsFixed(1)}',
-                style:
-                    const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+            Text(
+              'Peso da avaliação: ${prova.peso.toStringAsFixed(1)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: ctrl,
               autofocus: true,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: '0.0 — 10.0',
@@ -439,8 +476,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 16,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -460,11 +499,13 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () {
-              final valor =
-                  double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+              final valor = double.tryParse(
+                ctrl.text.trim().replaceAll(',', '.'),
+              );
               if (valor == null || valor < 0 || valor > 10) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
                   const SnackBar(
@@ -476,22 +517,91 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
               }
               Navigator.pop(ctx, valor);
             },
-            child: const Text('Salvar',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Salvar',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Future<void> _apagarProva() async {
+    final prova = _prova;
+
+    if (prova == null || prova.id == null) return;
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Apagar prova?'),
+          content: Text(
+            'Tem certeza que deseja apagar "${prova.titulo}"?\n\n'
+            'As tarefas vinculadas a essa prova e a nota registrada também serão removidas.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Apagar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmado != true) return;
+
+    try {
+      // Remove a nota vinculada à prova
+      await _notaService.removerNotaDaProva(prova.id!);
+
+      // Remove tarefas vinculadas à prova
+      for (final tarefa in _tarefas) {
+        if (tarefa.id != null) {
+          await _tarefaService.removerTarefa(tarefa.id!);
+        }
+      }
+
+      // Remove a prova
+      await _provaService.removerProva(prova.id!);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Prova apagada com sucesso!'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao apagar prova: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_prova == null) {
@@ -511,6 +621,13 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         title: const Text('Detalhes da Prova'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Apagar prova',
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+            onPressed: _apagarProva,
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _carregar,
@@ -527,16 +644,22 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSecaoTitulo(
-                    '📋 Tarefas Relacionadas', '${_tarefas.length}'),
+                  '📋 Tarefas Relacionadas',
+                  '${_tarefas.length}',
+                ),
                 TextButton.icon(
                   onPressed: _abrirDialogAdicionarTarefa,
                   icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Adicionar',
-                      style: TextStyle(fontSize: 12)),
+                  label: const Text(
+                    'Adicionar',
+                    style: TextStyle(fontSize: 12),
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF4F46E5),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
                 ),
               ],
@@ -544,14 +667,14 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
             const SizedBox(height: 12),
             if (_tarefas.isEmpty)
               _buildVazio(
-                  'Nenhuma tarefa vinculada.\nToque em "Adicionar" para criar uma.')
+                'Nenhuma tarefa vinculada.\nToque em "Adicionar" para criar uma.',
+              )
             else
               ..._tarefas.map((t) => _buildTarefaTile(t)),
 
             const SizedBox(height: 24),
 
-            _buildSecaoTitulo(
-                '📄 Resumos Relacionados', '${_resumos.length}'),
+            _buildSecaoTitulo('📄 Resumos Relacionados', '${_resumos.length}'),
             const SizedBox(height: 12),
             if (_resumos.isEmpty)
               _buildVazio('Nenhum resumo vinculado a esta prova.')
@@ -568,11 +691,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
             ? const Color(0xFF94A3B8)
             : const Color(0xFF10B981),
         foregroundColor: Colors.white,
-        icon: Icon(prova.realizada
-            ? Icons.undo_rounded
-            : Icons.check_circle_rounded),
-        label:
-            Text(prova.realizada ? 'Marcar pendente' : 'Marcar realizada'),
+        icon: Icon(
+          prova.realizada ? Icons.undo_rounded : Icons.check_circle_rounded,
+        ),
+        label: Text(prova.realizada ? 'Marcar pendente' : 'Marcar realizada'),
       ),
     );
   }
@@ -597,10 +719,11 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (prova.realizada
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFEF4444))
-                .withValues(alpha: 0.3),
+            color:
+                (prova.realizada
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444))
+                    .withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -725,14 +848,18 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
               const Text(
                 '🎯 Preparação para a prova',
                 style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: Color(0xFF1E293B)),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: Color(0xFF1E293B),
+                ),
               ),
               Text(
                 '${(pct * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
-                    fontWeight: FontWeight.w900, fontSize: 16, color: cor),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: cor,
+                ),
               ),
             ],
           ),
@@ -765,9 +892,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
         Text(
           title,
           style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B)),
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E293B),
+          ),
         ),
         const SizedBox(width: 8),
         Container(
@@ -779,9 +907,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
           child: Text(
             count,
             style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4F46E5)),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4F46E5),
+            ),
           ),
         ),
       ],
@@ -822,40 +951,44 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            decoration:
-                tarefa.concluida ? TextDecoration.lineThrough : null,
+            decoration: tarefa.concluida ? TextDecoration.lineThrough : null,
             color: tarefa.concluida
                 ? const Color(0xFF94A3B8)
                 : const Color(0xFF1E293B),
           ),
         ),
         subtitle: tarefa.descricao.isNotEmpty
-            ? Text(tarefa.descricao,
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF94A3B8)))
+            ? Text(
+                tarefa.descricao,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              )
             : null,
         secondary: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                color: _corPrioridade(tarefa.prioridade)
-                    .withValues(alpha: 0.12),
+                color: _corPrioridade(
+                  tarefa.prioridade,
+                ).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 _labelPrioridade(tarefa.prioridade),
                 style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: _corPrioridade(tarefa.prioridade)),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: _corPrioridade(tarefa.prioridade),
+                ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded,
-                  color: Colors.redAccent, size: 18),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+                size: 18,
+              ),
               onPressed: () => _deletarTarefa(tarefa),
               tooltip: 'Remover',
             ),
@@ -881,8 +1014,7 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
               : const Color(0xFF8B5CF6).withValues(alpha: 0.1),
           child: Icon(
             isQuiz ? Icons.quiz_rounded : Icons.text_snippet_rounded,
-            color:
-                isQuiz ? const Color(0xFFEC4899) : const Color(0xFF8B5CF6),
+            color: isQuiz ? const Color(0xFFEC4899) : const Color(0xFF8B5CF6),
           ),
         ),
         title: Text(
@@ -895,8 +1027,10 @@ class _TelaDetalhesProvaState extends State<TelaDetalhesProva> {
           isQuiz ? 'Quiz' : 'Resumo',
           style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
         ),
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF94A3B8)),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF94A3B8),
+        ),
       ),
     );
   }

@@ -7,7 +7,7 @@ class DatabaseHelper {
   static Database? _database;
 
   static const String _dbName = 'studyflow.db';
-  static const int _dbVersion = 11; // v11: vincula notas geradas por provas
+  static const int _dbVersion = 12; // v11: vincula notas geradas por provas
 
   // Tabelas
   static const String tableMateria = 'materia';
@@ -24,6 +24,7 @@ class DatabaseHelper {
   static const String colMateriaNome = 'nome';
   static const String colMateriaProfessor = 'professor';
   static const String colMateriaCor = 'cor';
+  static const String colMateriaIcone = 'icone';
   static const String colMateriaHorario = 'horario';
   static const String colMateriaMetaHoras = 'meta_horas';
   static const String colMateriaStatus = 'status';
@@ -247,7 +248,9 @@ class DatabaseHelper {
       colTarefaPrioridade,
       "TEXT DEFAULT 'media'",
     );
-    await _addColIfMissing(db, tableTarefa, colIdUsuario, 'TEXT');
+    // Materia
+    await _addColIfMissing(db, tableMateria, colMateriaIcone, 'INTEGER');
+    await _addColIfMissing(db, tableMateria, colIdUsuario, 'TEXT');
 
     // Materia
     await _addColIfMissing(db, tableMateria, colIdUsuario, 'TEXT');
@@ -430,6 +433,10 @@ class DatabaseHelper {
 
       if (oldVersion < 11) {
         await _addColIfMissing(db, tableNota, colNotaIdProva, 'INTEGER');
+      }
+
+      if (oldVersion < 12) {
+        await _addColIfMissing(db, tableMateria, colMateriaIcone, 'INTEGER');
       }
 
       // Sempre garante os índices

@@ -24,10 +24,7 @@ class TelaDetalhesMateria extends StatefulWidget {
   State<TelaDetalhesMateria> createState() => _TelaDetalhesMateriaState();
 }
 
-class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
   final TarefaService tarefaService = TarefaService();
   final ProvaService provaService = ProvaService();
   final GeminiService geminiService = GeminiService();
@@ -41,14 +38,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
   String _prioridadeTarefa = prioridadeMedia;
   Prova? _provaVinculadaTarefa; // vincula a tarefa criada a uma prova
 
-  // Controladores para Prova
-  final tituloProvaController = TextEditingController();
-  final descricaoProvaController = TextEditingController();
-  final notaProvaController = TextEditingController();
-  final pesoProvaController = TextEditingController(text: '1.0'); // NOVO
-  DateTime? _dataCriacaoProva;
-  DateTime? _dataProva;
-
   // Arquivo PDF opcional selecionado na criação
   PlatformFile? _pdfAnexoSelecionado;
 
@@ -60,12 +49,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
     carregarTarefas();
-    carregarProvas();
   }
 
   // ================= IA & PDF =================
@@ -117,8 +101,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
 
         if (item is Tarefa) {
           await carregarTarefas();
-        } else if (item is Prova) {
-          await carregarProvas();
         }
 
         _mostrarSucesso('PDF anexado e resumido com sucesso!');
@@ -163,13 +145,8 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
 
   @override
   void dispose() {
-    _tabController.dispose();
     tituloTarefaController.dispose();
     descricaoTarefaController.dispose();
-    tituloProvaController.dispose();
-    descricaoProvaController.dispose();
-    notaProvaController.dispose();
-    pesoProvaController.dispose();
     super.dispose();
   }
 
@@ -191,23 +168,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
     }
   }
 
-  Future<void> carregarProvas() async {
-    setState(() => _isLoadingProvas = true);
-    try {
-      final lista = await provaService.buscarPorMateria(widget.materia.id!);
-      if (mounted) {
-        setState(() {
-          provas = lista;
-          _isLoadingProvas = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingProvas = false);
-        _mostrarErro('Erro ao carregar provas: $e');
-      }
-    }
-  }
 
   // ================= TAREFAS =================
 
@@ -294,189 +254,10 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
 
   // ================= PROVAS =================
 
-  Future<void> adicionarProva() async {
-    if (tituloProvaController.text.trim().isEmpty) {
-      _mostrarErro('Preencha o título da prova');
-      return;
-    }
-
-    // Armazena o PDF selecionado localmente e fecha o dialog
-    final pdfSelecionado = _pdfAnexoSelecionado;
-    Navigator.pop(context);
-
-    final peso =
-        double.tryParse(pesoProvaController.text.trim().replaceAll(',', '.')) ??
-        1.0;
-    if (peso <= 0) {
-      _mostrarErro('O peso deve ser maior que zero');
-      return;
-    }
-
-    try {
-      final prova = Prova(
-        titulo: tituloProvaController.text.trim(),
-        descricao: descricaoProvaController.text.trim(),
-        realizada: false,
-        idMateria: widget.materia.id!,
-        dataCriacao: _dataCriacaoProva ?? DateTime.now(),
-        dataProva: _dataProva,
-        nota: double.tryParse(notaProvaController.text),
-        peso: peso,
-      );
-
-      final idProva = await provaService.inserirProva(prova);
-      prova.id = idProva;
-
-      if (pdfSelecionado != null) {
-        _mostrarSucesso('Salvando prova e lendo PDF, aguarde...');
-        await _processarAnexo(prova, pdfSelecionado);
-        _mostrarSucesso('Prova e anexo adicionados com sucesso!');
-      } else {
-        _mostrarSucesso('Prova adicionada com sucesso!');
-      }
-
-      if (!mounted) return;
-      tituloProvaController.clear();
-      descricaoProvaController.clear();
-      notaProvaController.clear();
-      pesoProvaController.text = '1.0';
-      _dataCriacaoProva = null;
-      _dataProva = null;
-      _pdfAnexoSelecionado = null;
-      await carregarProvas();
-    } catch (e) {
-      if (mounted) _mostrarErro('Erro ao adicionar prova: $e');
-    }
-  }
-
   /// Marca a prova como realizada/pendente.
   /// Ao marcar como realizada, pede a nota obtida e a registra também
   /// na tabela de Notas para entrar nos cálculos de desempenho.
-  Future<void> atualizarStatusProva(int index, bool? newValue) async {
-    if (newValue == null) return;
-    final prova = provas[index];
 
-    if (newValue == true && !prova.realizada) {
-      final nota = await _pedirNotaProva(prova);
-      if (nota == null) return; // cancelado: não marca como realizada
-
-      try {
-        prova.realizada = true;
-        prova.nota = nota;
-        await provaService.atualizarProva(prova);
-        if (!mounted) return;
-        await carregarProvas();
-        _mostrarSucesso('✅ Prova concluída! Nota $nota registrada em Notas.');
-      } catch (e) {
-        if (!mounted) return;
-        _mostrarErro('Erro ao atualizar prova: $e');
-      }
-    } else {
-      try {
-        provas[index].realizada = newValue;
-        await provaService.atualizarProva(provas[index]);
-        if (!mounted) return;
-        await carregarProvas();
-        _mostrarSucesso(newValue ? 'Prova realizada!' : 'Prova pendente!');
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          provas[index].realizada = !newValue;
-        });
-        _mostrarErro('Erro ao atualizar prova: $e');
-      }
-    }
-  }
-
-  Future<double?> _pedirNotaProva(Prova prova) async {
-    final ctrl = TextEditingController();
-    return showDialog<double>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Qual foi a sua nota?',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              prova.titulo,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Peso: ${prova.peso.toStringAsFixed(1)}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              decoration: InputDecoration(
-                hintText: '0.0 — 10.0',
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-            ),
-            onPressed: () {
-              final valor = double.tryParse(
-                ctrl.text.trim().replaceAll(',', '.'),
-              );
-              if (valor == null || valor < 0 || valor > 10) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('Informe uma nota entre 0 e 10.'),
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(ctx, valor);
-            },
-            child: const Text('Salvar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> deletarProva(int index) async {
-    final confirmado = await _confirmarExclusao(provas[index].titulo);
-    if (confirmado == true) {
-      try {
-        await provaService.removerProva(provas[index].id!);
-        if (mounted) {
-          await carregarProvas();
-          _mostrarSucesso('Prova removida!');
-        }
-      } catch (e) {
-        if (mounted) _mostrarErro('Erro ao remover prova: $e');
-      }
-    }
-  }
 
   // ================= UTEIS =================
 
@@ -827,155 +608,18 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
     );
   }
 
-  void abrirDialogAdicionarProva() {
-    tituloProvaController.clear();
-    descricaoProvaController.clear();
-    notaProvaController.clear();
-    pesoProvaController.text = '1.0';
-    _dataCriacaoProva = DateTime.now();
-    _dataProva = null;
-    _pdfAnexoSelecionado = null;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Nova Prova'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: tituloProvaController,
-                      decoration: const InputDecoration(labelText: 'Título'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: descricaoProvaController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Descrição (opcional)',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Data da Prova'),
-                      subtitle: Text(
-                        _dataProva != null
-                            ? _formatDate(_dataProva!)
-                            : 'Sem data definida',
-                      ),
-                      trailing: const Icon(Icons.event),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _dataProva ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => _dataProva = picked);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: pesoProvaController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Peso da avaliação',
-                        hintText: 'Ex: 1.0, 2.0...',
-                        helperText: 'Usado no cálculo da média ponderada',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        FilePickerResult? result = await FilePicker.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['pdf'],
-                          withData: true,
-                        );
-                        if (result != null &&
-                            result.files.single.bytes != null) {
-                          setDialogState(() {
-                            _pdfAnexoSelecionado = result.files.single;
-                          });
-                        }
-                      },
-                      icon: Icon(
-                        _pdfAnexoSelecionado != null
-                            ? Icons.check_circle
-                            : Icons.picture_as_pdf,
-                        color: _pdfAnexoSelecionado != null
-                            ? Colors.green
-                            : null,
-                      ),
-                      label: Text(
-                        _pdfAnexoSelecionado != null
-                            ? 'PDF: ${_pdfAnexoSelecionado!.name}'
-                            : 'Anexar PDF (Opcional)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        side: BorderSide(
-                          color: _pdfAnexoSelecionado != null
-                              ? Colors.green
-                              : Colors.grey,
-                        ),
-                        alignment: Alignment.centerLeft,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: adicionarProva,
-                  child: const Text('Salvar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
+
       appBar: AppBar(
         title: Text(widget.materia.nome),
         backgroundColor: Colors.transparent,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF4F46E5),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF4F46E5),
-          tabs: const [
-            Tab(text: 'Tarefas', icon: Icon(Icons.task_alt_rounded)),
-            Tab(text: 'Provas', icon: Icon(Icons.assignment_late_rounded)),
-          ],
-        ),
       ),
+
       body: Column(
         children: [
           Padding(
@@ -988,7 +632,10 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: widget.materia.cor,
-                  child: const Icon(Icons.menu_book, color: Colors.white),
+                  child: Icon(
+                    widget.materia.icone ?? Icons.menu_book,
+                    color: Colors.white,
+                  ),
                 ),
                 title: Text(
                   widget.materia.nome,
@@ -998,29 +645,34 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
               ),
             ),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [_buildListaTarefas(), _buildListaProvas()],
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.task_alt_rounded, color: Color(0xFF4F46E5)),
+                const SizedBox(width: 8),
+                Text(
+                  'Tarefas da matéria',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
+
+          const SizedBox(height: 8),
+
+          Expanded(child: _buildListaTarefas()),
         ],
       ),
+
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (_tabController.index == 0) {
-            abrirDialogAdicionarTarefa();
-          } else {
-            abrirDialogAdicionarProva();
-          }
-        },
+        onPressed: abrirDialogAdicionarTarefa,
         backgroundColor: const Color(0xFF4F46E5),
         foregroundColor: Colors.white,
-        child: Icon(
-          _tabController.index == 0
-              ? Icons.add_task_rounded
-              : Icons.post_add_rounded,
-        ),
+        child: const Icon(Icons.add_task_rounded),
       ),
     );
   }
@@ -1149,105 +801,4 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria>
     );
   }
 
-  Widget _buildListaProvas() {
-    if (_isLoadingProvas) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (provas.isEmpty) {
-      return const Center(
-        child: Text(
-          'Nenhuma prova cadastrada. Clique no +',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: provas.length,
-      itemBuilder: (context, index) {
-        final prova = provas[index];
-        String datasTexto = '';
-        if (prova.dataProva != null) {
-          datasTexto += 'Data da Prova: ${_formatDate(prova.dataProva!)}';
-        }
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: CheckboxListTile(
-            title: Text(
-              prova.titulo,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                decoration: prova.realizada ? TextDecoration.lineThrough : null,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (prova.descricao.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text(prova.descricao),
-                  ),
-                if (datasTexto.isNotEmpty)
-                  Text(
-                    datasTexto,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      height: 1.4,
-                    ),
-                  ),
-                Text(
-                  'Peso: ${prova.peso.toStringAsFixed(1)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                if (prova.nota != null)
-                  Text(
-                    'Nota: ${prova.nota}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4F46E5),
-                    ),
-                  ),
-              ],
-            ),
-            value: prova.realizada,
-            activeColor: const Color(0xFF4F46E5),
-            onChanged: (val) => atualizarStatusProva(index, val),
-            secondary: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (prova.documentoId != null)
-                  IconButton(
-                    icon: const Icon(
-                      Icons.description,
-                      color: Color(0xFF8B5CF6),
-                    ),
-                    onPressed: () => _verResumo(prova.documentoId!),
-                    tooltip: 'Ver Resumo',
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(
-                      Icons.picture_as_pdf,
-                      color: Color(0xFF64748B),
-                    ),
-                    onPressed: () => _anexarPdf(prova),
-                    tooltip: 'Anexar PDF (IA)',
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => deletarProva(index),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
