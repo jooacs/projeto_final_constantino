@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../database/db_constants.dart';
-
+import 'package:open_filex/open_filex.dart';
 import '../models/materia.dart';
 import '../models/tarefa.dart';
 import '../models/prova.dart';
@@ -84,6 +84,28 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
     } else if (item is Prova) {
       item.documentoId = docId;
       await provaService.atualizarProva(item);
+    }
+  }
+
+  Future<void> _abrirPdf(int docId) async {
+    try {
+      final docs = await documentoService.getDocumentos();
+      final doc = docs.firstWhere((d) => d.id == docId);
+
+      final arquivo = File(doc.caminho);
+
+      if (!await arquivo.exists()) {
+        _mostrarErro('Arquivo PDF não encontrado no dispositivo.');
+        return;
+      }
+
+      final result = await OpenFilex.open(doc.caminho);
+
+      if (result.type != ResultType.done) {
+        _mostrarErro('Não foi possível abrir o PDF: ${result.message}');
+      }
+    } catch (e) {
+      _mostrarErro('Erro ao abrir PDF: $e');
     }
   }
 
@@ -167,7 +189,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
       }
     }
   }
-
 
   // ================= TAREFAS =================
 
@@ -257,7 +278,6 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
   /// Marca a prova como realizada/pendente.
   /// Ao marcar como realizada, pede a nota obtida e a registra também
   /// na tabela de Notas para entrar nos cálculos de desempenho.
-
 
   // ================= UTEIS =================
 
@@ -731,7 +751,7 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
                   secondary: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (tarefa.documentoId != null)
+                      if (tarefa.documentoId != null) ...[
                         IconButton(
                           icon: const Icon(
                             Icons.description,
@@ -739,8 +759,16 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
                           ),
                           onPressed: () => _verResumo(tarefa.documentoId!),
                           tooltip: 'Ver Resumo',
-                        )
-                      else
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.picture_as_pdf,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _abrirPdf(tarefa.documentoId!),
+                          tooltip: 'Abrir PDF',
+                        ),
+                      ] else
                         IconButton(
                           icon: const Icon(
                             Icons.picture_as_pdf,
@@ -800,5 +828,4 @@ class _TelaDetalhesMateriaState extends State<TelaDetalhesMateria> {
       },
     );
   }
-
 }

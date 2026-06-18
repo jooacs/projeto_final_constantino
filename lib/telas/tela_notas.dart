@@ -4,6 +4,8 @@ import '../models/nota.dart';
 import '../models/materia.dart';
 import '../services/nota_service.dart';
 import '../services/materia_service.dart';
+import '../models/prova.dart';
+import '../services/prova_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modelo interno de desempenho por matéria
@@ -51,6 +53,7 @@ class _TelaNotasState extends State<TelaNotas>
     with SingleTickerProviderStateMixin {
   final _notaService = NotaService();
   final _materiaService = MateriaService();
+  final _provaService = ProvaService();
   late TabController _tabController;
 
   List<_Desempenho> _desempenhos = [];
@@ -308,8 +311,8 @@ class _TelaNotasState extends State<TelaNotas>
           const SizedBox(height: 12),
           if (comNotas.isEmpty)
             _buildVazio(
-              'Nenhuma nota registrada',
-              'As notas aparecerão aqui quando você marcar uma prova como realizada.',
+              'Nenhuma nota cadastrada',
+              'Adicione notas às suas matérias para ver a evolução.',
             )
           else
             ...comNotas.map((d) => _buildCardMateria(d)),
@@ -327,6 +330,10 @@ class _TelaNotasState extends State<TelaNotas>
             const SizedBox(height: 12),
             ...emRisco.map((d) => _buildCardRisco(d)),
           ],
+
+          // Botão Adicionar Nota
+          const SizedBox(height: 8),
+          _buildBotaoAdicionarNota(),
         ],
       ),
     );
@@ -715,6 +722,23 @@ class _TelaNotasState extends State<TelaNotas>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBotaoAdicionarNota() {
+    return OutlinedButton.icon(
+      onPressed: _abrirDialogAdicionarNota,
+      icon: const Icon(Icons.add_rounded),
+      label: const Text(
+        'Adicionar Nota',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF4F46E5),
+        side: const BorderSide(color: Color(0xFF4F46E5)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -1377,6 +1401,363 @@ class _TelaNotasState extends State<TelaNotas>
   // ─────────────────────────────────────────────────────────────────────────
   // Dialogs
   // ─────────────────────────────────────────────────────────────────────────
+
+  void _abrirDialogAdicionarNota() {
+    if (_desempenhos.isEmpty) {
+      _mostrarErro('Cadastre pelo menos uma matéria primeiro.');
+      return;
+    }
+
+    final descricaoCtrl = TextEditingController();
+    final valorCtrl = TextEditingController();
+    final pesoCtrl = TextEditingController(text: '1.0');
+
+    _Desempenho? materiaSel = _desempenhos.first;
+    String tipoSel = 'prova';
+    DateTime? dataSel = DateTime.now();
+
+    List<Prova> provasDaMateria = [];
+    Prova? provaSel;
+
+    Future<void> carregarProvasDaMateria(
+      _Desempenho? desempenho,
+      void Function(void Function()) setDs,
+    ) async {
+      if (desempenho?.materia.id == null) return;
+
+      final provas = await _provaService.buscarPorMateria(
+        desempenho!.materia.id!,
+      );
+
+      final provasPendentes = provas.where((p) => !p.realizada).toList();
+
+      setDs(() {
+        provasDaMateria = provasPendentes;
+
+        // Deixa sem prova selecionada por padrão.
+        // Assim você escolhe manualmente qual prova pendente vai receber a nota.
+        provaSel = null;
+      });
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (ctx, setDs) {
+          if (provasDaMateria.isEmpty && materiaSel?.materia.id != null) {
+            Future.microtask(() {
+              carregarProvasDaMateria(materiaSel, setDs);
+            });
+          }
+
+          return AlertDialog(
+            title: const Text(
+              'Nova Nota',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Matéria',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    DropdownButtonFormField<_Desempenho>(
+                      initialValue: materiaSel,
+                      isExpanded: true,
+                      items: _desempenhos
+                          .map(
+                            (d) => DropdownMenuItem(
+                              value: d,
+                              child: Text(
+                                d.materia.nome,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) async {
+                        setDs(() {
+                          materiaSel = v;
+                          provasDaMateria = [];
+                          provaSel = null;
+                        });
+
+                        await carregarProvasDaMateria(v, setDs);
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    const Text(
+                      'Vincular a uma prova',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    DropdownButtonFormField<Prova?>(
+                      value: provaSel,
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<Prova?>(
+                          value: null,
+                          child: Text('Nenhuma prova pendente'),
+                        ),
+                        ...provasDaMateria.map(
+                          (p) => DropdownMenuItem<Prova?>(
+                            value: p,
+                            child: Text(
+                              p.titulo,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        setDs(() {
+                          provaSel = v;
+
+                          if (v != null) {
+                            descricaoCtrl.text = v.titulo;
+                            pesoCtrl.text = v.peso.toStringAsFixed(1);
+                            dataSel = v.dataProva ?? DateTime.now();
+                            tipoSel = 'prova';
+                          }
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    TextField(
+                      controller: descricaoCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição (ex: P1, Trabalho)',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: valorCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Nota (0-10)',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: pesoCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Peso',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Tipo de avaliação',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    DropdownButtonFormField<String>(
+                      initialValue: tipoSel,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'prova', child: Text('Prova')),
+                        DropdownMenuItem(
+                          value: 'trabalho',
+                          child: Text('Trabalho'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'participacao',
+                          child: Text('Participação'),
+                        ),
+                        DropdownMenuItem(value: 'outro', child: Text('Outro')),
+                      ],
+                      onChanged: (v) {
+                        setDs(() {
+                          tipoSel = v ?? 'prova';
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text(
+                        'Data da avaliação',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        dataSel != null
+                            ? '${dataSel!.day.toString().padLeft(2, '0')}/${dataSel!.month.toString().padLeft(2, '0')}/${dataSel!.year}'
+                            : 'Toque para selecionar',
+                        style: const TextStyle(color: Color(0xFF4F46E5)),
+                      ),
+                      trailing: const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 18,
+                        color: Color(0xFF4F46E5),
+                      ),
+                      onTap: () async {
+                        final p = await showDatePicker(
+                          context: ctx,
+                          initialDate: dataSel ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+
+                        if (p != null) {
+                          setDs(() {
+                            dataSel = p;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  if (descricaoCtrl.text.trim().isEmpty) {
+                    _mostrarErro('Informe a descrição.');
+                    return;
+                  }
+
+                  final valor = double.tryParse(
+                    valorCtrl.text.trim().replaceAll(',', '.'),
+                  );
+
+                  if (valor == null || valor < 0 || valor > 10) {
+                    _mostrarErro('Nota deve ser entre 0 e 10.');
+                    return;
+                  }
+
+                  final peso =
+                      double.tryParse(
+                        pesoCtrl.text.trim().replaceAll(',', '.'),
+                      ) ??
+                      1.0;
+
+                  if (materiaSel == null) return;
+
+                  try {
+                    if (provaSel != null) {
+                      final prova = provaSel!;
+
+                      prova.realizada = true;
+                      prova.nota = valor;
+                      prova.peso = peso;
+
+                      await _provaService.atualizarProva(prova);
+
+                      await _notaService.salvarNotaDaProva(prova, valor);
+                    } else {
+                      final nota = Nota(
+                        idMateria: materiaSel!.materia.id!,
+                        descricao: descricaoCtrl.text.trim(),
+                        valor: valor,
+                        peso: peso,
+                        tipo: tipoSel,
+                        data: dataSel,
+                      );
+
+                      await _notaService.inserirNota(nota);
+                    }
+
+                    if (!ctx.mounted) return;
+
+                    Navigator.pop(ctx);
+                    _mostrarSucesso('Nota adicionada!');
+                    _carregar();
+                  } catch (e) {
+                    _mostrarErro('Erro: $e');
+                  }
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   void _abrirDetalhesMateria(_Desempenho d) {
     showModalBottomSheet(
